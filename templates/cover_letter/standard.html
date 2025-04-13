@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter - {{name}}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .contact-info {
+            text-align: right;
+        }
+        .date {
+            margin: 25px 0;
+        }
+        .recipient {
+            margin-bottom: 25px;
+        }
+        .greeting {
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .content {
+            margin-bottom: 30px;
+            text-align: justify;
+        }
+        .content p {
+            margin-bottom: 15px;
+        }
+        .signature {
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="sender">
+                <div>{{name}}</div>
+                <div>{{address}}</div>
+            </div>
+            <div class="contact-info">
+                <div>{{phone}}</div>
+                <div>{{email}}</div>
+                <div>{{linkedin}}</div>
+            </div>
+        </div>
+
+        <div class="date">{{date}}</div>
+
+        <div class="recipient">
+            <div>{{recipient_name}}</div>
+            <div>{{company_name}}</div>
+            <div>{{company_address}}</div>
+        </div>
+
+        <div class="greeting">Dear {{greeting_name}},</div>
+
+        <div class="content">
+            <p>{{opening_paragraph}}</p>
+
+            <p>{{experience_paragraph}}</p>
+
+            <p>{{skills_paragraph}}</p>
+
+            <p>{{company_paragraph}}</p>
+
+            <p>{{closing_paragraph}}</p>
+        </div>
+
+        <div class="closing">Sincerely,</div>
+        
+        <div class="signature">
+            {{name}}
+        </div>
+    </div>
+</body>
+</html>

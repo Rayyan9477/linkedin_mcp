@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}} - Resume</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            margin-bottom: 5px;
+            color: #2a5885;
+        }
+        .contact-info {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            color: #2a5885;
+        }
+        .experience-item, .education-item {
+            margin-bottom: 15px;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .item-title {
+            font-weight: bold;
+        }
+        .item-date {
+            color: #777;
+        }
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .skill-item {
+            background-color: #f1f1f1;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{name}}</h1>
+            <div>{{headline}}</div>
+            <div class="contact-info">
+                {{email}} | {{phone}} | {{location}} | <a href="{{linkedin}}">LinkedIn Profile</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Summary</h2>
+            <p>{{summary}}</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Experience</h2>
+            {{#experience}}
+            <div class="experience-item">
+                <div class="item-header">
+                    <span class="item-title">{{title}} - {{company}}</span>
+                    <span class="item-date">{{date_range}}</span>
+                </div>
+                <div class="item-location">{{location}}</div>
+                <div class="item-description">{{description}}</div>
+            </div>
+            {{/experience}}
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Education</h2>
+            {{#education}}
+            <div class="education-item">
+                <div class="item-header">
+                    <span class="item-title">{{school}}</span>
+                    <span class="item-date">{{date_range}}</span>
+                </div>
+                <div>{{degree}} in {{field}}</div>
+                <div class="item-description">{{description}}</div>
+            </div>
+            {{/education}}
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Skills</h2>
+            <div class="skills-list">
+                {{#skills}}
+                <div class="skill-item">{{.}}</div>
+                {{/skills}}
+            </div>
+        </div>
+
+        {{#certifications.length}}
+        <div class="section">
+            <h2 class="section-title">Certifications</h2>
+            <ul>
+                {{#certifications}}
+                <li>
+                    <strong>{{name}}</strong>
+                    {{#issuing_authority}} - {{issuing_authority}}{{/issuing_authority}}
+                    {{#issue_date}} ({{issue_date}}){{/issue_date}}
+                </li>
+                {{/certifications}}
+            </ul>
+        </div>
+        {{/certifications.length}}
+
+        {{#projects.length}}
+        <div class="section">
+            <h2 class="section-title">Projects</h2>
+            {{#projects}}
+            <div class="experience-item">
+                <div class="item-header">
+                    <span class="item-title">{{name}}</span>
+                    <span class="item-date">{{date_range}}</span>
+                </div>
+                <div class="item-description">{{description}}</div>
+            </div>
+            {{/projects}}
+        </div>
+        {{/projects.length}}
+
+        {{#languages.length}}
+        <div class="section">
+            <h2 class="section-title">Languages</h2>
+            <ul>
+                {{#languages}}
+                <li><strong>{{language}}</strong>: {{proficiency}}</li>
+                {{/languages}}
+            </ul>
+        </div>
+        {{/languages.length}}
+    </div>
+</body>
+</html>
