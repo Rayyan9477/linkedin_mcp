@@ -39,7 +39,7 @@ class LinkedInAuth:
         self.driver = None
         self.session_state = LinkedInSessionState(logged_in=False)
     
-    def login(self, username: str, password: str) -> Dict[str, Any]:
+    def login(self, username: str, password: str, force_new: bool = False) -> Dict[str, Any]:
         """
         Log in to LinkedIn using the provided credentials
         Attempts API login first, falls back to browser-based login if needed
@@ -47,13 +47,76 @@ class LinkedInAuth:
         Args:
             username: LinkedIn username (email)
             password: LinkedIn password
+            force_new: If True, forces a new login even if a valid session exists
             
         Returns:
             Dict containing session state information
+            
+        Raises:
+            Exception: If login fails after all attempts
         """
         logger.info(f"Attempting to login with username: {username}")
         
-        # Check if we have a saved session
+        # Check if we have a valid saved session and not forcing new login
+        if not force_new:
+            try:
+                session_data = self._load_session(username)
+                if session_data:
+                    logger.info("Successfully restored session from cache")
+                    return session_data
+            except Exception as e:
+                logger.warning(f"Session restoration failed: {str(e)}")
+        else:
+            logger.info("Forcing new login as requested")
+        
+        # Attempt API login first
+        try:
+            logger.info("Attempting API login...")
+            self.api_client = Linkedin(
+                username, 
+                password,
+                refresh_cookies=True,
+                debug=logger.getEffectiveLevel() == logging.DEBUG
+            )
+            
+            # Get session cookies and headers
+            cookies = dict(self.api_client.client.session.cookies)
+            headers = dict(self.api_client.client.headers)
+            
+            # Update session state
+            self.session_state = LinkedInSessionState(
+                logged_in=True,
+                username=username,
+                cookies=cookies,
+                headers=headers
+            )
+            
+            # Save the session
+            self._save_session(username, cookies, headers)
+            
+            logger.info("API login successful")
+            return self.session_state.dict()
+            
+        except Exception as api_error:
+            logger.warning(f"API login failed: {str(api_error)}")
+            if "Challenge" in str(api_error):
+                logger.warning("Challenge detected, falling back to browser login")
+                return self._browser_login_with_retry(username, password)
+                
+            # If it's not a challenge error, try browser login
+            logger.info("Falling back to browser login...")
+            return self._browser_login_with_retry(username, password)
+    
+    def _load_session(self, username: str) -> Optional[Dict[str, Any]]:
+        """
+        Load a saved session from cache
+        
+        Args:
+            username: LinkedIn username (email)
+        
+        Returns:
+            Dict containing session state information or None if no valid session found
+        """
         session_path = self.session_dir / f"{username}.session"
         if session_path.exists():
             try:
@@ -62,69 +125,94 @@ class LinkedInAuth:
                     
                 # Check if session is still valid (less than 7 days old)
                 if datetime.now() - session_data.get("timestamp", datetime.now()) < timedelta(days=7):
-                    logger.info("Found valid saved session, restoring...")
-                    self.api_client = Linkedin(username, password, cookies=session_data.get("cookies"))
-                    
-                    # Update session state
-                    self.session_state = LinkedInSessionState(
-                        logged_in=True,
-                        username=username,
-                        cookies=session_data.get("cookies"),
-                        headers=session_data.get("headers")
-                    )
-                    
-                    logger.info("Successfully restored session")
-                    return self.session_state.dict()
-                else:
-                    logger.info("Saved session expired, creating new session")
+                    return session_data
             except Exception as e:
-                logger.error(f"Error restoring session: {str(e)}")
+                logger.error(f"Error loading session: {str(e)}")
         
-        # Try API-based login first
+        return None
+        
+    def _save_session(self, username: str, cookies: Dict[str, str], headers: Dict[str, str]) -> None:
+        """
+        Save session data to cache
+        
+        Args:
+            username: LinkedIn username (email)
+            cookies: Session cookies
+            headers: Session headers
+        """
+        session_path = self.session_dir / f"{username}.session"
+        session_data = {
+            "timestamp": datetime.now(),
+            "cookies": cookies,
+            "headers": headers
+        }
+        
         try:
-            logger.info("Attempting API-based login")
-            self.api_client = Linkedin(username, password)
-            
-            # Save session for future use
-            session_data = {
-                "timestamp": datetime.now(),
-                "cookies": self.api_client.client.cookies,
-                "headers": self.api_client.client.headers
-            }
-            
             with open(session_path, "wb") as f:
                 pickle.dump(session_data, f)
+            logger.info("Session saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save session: {str(e)}")
             
-            # Update session state
-            self.session_state = LinkedInSessionState(
-                logged_in=True,
-                username=username,
-                cookies=dict(self.api_client.client.cookies),
-                headers=dict(self.api_client.client.headers)
-            )
+    def _browser_login_with_retry(self, username: str, password: str, max_retries: int = 3) -> Dict[str, Any]:
+        """
+        Attempt browser login with retry logic
+        
+        Args:
+            username: LinkedIn username (email)
+            password: LinkedIn password
+            max_retries: Maximum number of login attempts
             
-            logger.info("API-based login successful")
-            return self.session_state.dict()
-        except Exception as api_error:
-            logger.warning(f"API login failed: {str(api_error)}, falling back to browser-based login")
+        Returns:
+            Dict containing session state information
             
-            # Fall back to browser-based login
+        Raises:
+            Exception: If all login attempts fail
+        """
+        last_error = None
+        
+        for attempt in range(1, max_retries + 1):
             try:
-                logger.info("Attempting browser-based login")
+                logger.info(f"Browser login attempt {attempt}/{max_retries}")
                 self._browser_login(username, password)
+                
+                # Get browser cookies
+                cookies = self._get_browser_cookies()
+                
+                # Save the session
+                self._save_session(username, cookies, {})
                 
                 # Update session state
                 self.session_state = LinkedInSessionState(
                     logged_in=True,
                     username=username,
-                    cookies=self._get_browser_cookies() if self.driver else None
+                    cookies=cookies,
+                    headers={}
                 )
                 
-                logger.info("Browser-based login successful")
+                logger.info("Browser login successful")
                 return self.session_state.dict()
-            except Exception as browser_error:
-                logger.error(f"Browser login failed: {str(browser_error)}")
-                raise Exception(f"Failed to login: {str(browser_error)}")
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Browser login attempt {attempt} failed: {str(e)}")
+                
+                # Clean up any existing driver
+                if self.driver:
+                    try:
+                        self.driver.quit()
+                    except:
+                        pass
+                    self.driver = None
+                
+                # Add delay between retries
+                if attempt < max_retries:
+                    retry_delay = 5 * attempt  # Exponential backoff
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+        
+        # If we get here, all attempts failed
+        raise Exception(f"All {max_retries} browser login attempts failed. Last error: {str(last_error)}")
     
     def _browser_login(self, username: str, password: str) -> None:
         """

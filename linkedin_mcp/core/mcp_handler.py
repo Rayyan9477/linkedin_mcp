@@ -58,29 +58,64 @@ class MCPHandler:
             "linkedin.saveJob": self._handle_save_job,
         }
     
-    def process_request(self, request: MCPRequest) -> Any:
+    def process_request(self, request: MCPRequest, max_retries: int = 3, retry_delay: float = 1.0) -> Any:
         """
-        Process an MCP request by routing to the appropriate handler
+        Process an MCP request by routing to the appropriate handler with retry logic
         
         Args:
             request: The MCP request to process
+            max_retries: Maximum number of retry attempts for transient failures
+            retry_delay: Initial delay between retries in seconds (will be increased with backoff)
             
         Returns:
             The result of the request
             
         Raises:
-            Exception: If the method is not supported or an error occurs
+            Exception: If the method is not supported or all retry attempts are exhausted
         """
         method = request.method
         params = request.params or {}
         
         handler = self.method_handlers.get(method)
         if not handler:
-            logger.error(f"Method not supported: {method}")
-            raise Exception(f"Method not supported: {method}")
+            error_msg = f"Method not supported: {method}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
         
-        logger.info(f"Processing request for method: {method}")
-        return handler(params)
+        last_exception = None
+        for attempt in range(max_retries + 1):  # +1 for the initial attempt
+            try:
+                logger.info(f"Processing request for method: {method} (attempt {attempt + 1}/{max_retries + 1})")
+                result = handler(params)
+                # If we got here, the request was successful
+                return result
+                
+            except Exception as e:
+                last_exception = e
+                error_type = type(e).__name__
+                
+                # Check if this is a transient error that might succeed on retry
+                is_transient = any(t in str(e).lower() for t in [
+                    'timeout', 'temporarily', 'rate limit', 'too many requests', 'service unavailable'
+                ])
+                
+                if not is_transient or attempt == max_retries:
+                    break
+                    
+                # Calculate backoff with jitter
+                backoff = min(retry_delay * (2 ** attempt), 30)  # Cap at 30 seconds
+                jitter = backoff * 0.1  # Add ±10% jitter
+                sleep_time = max(0.1, backoff - jitter + (2 * jitter * (hash(str(attempt)) % 100) / 100))
+                
+                logger.warning(
+                    f"Attempt {attempt + 1} failed with {error_type}: {str(e)}. "
+                    f"Retrying in {sleep_time:.2f}s..."
+                )
+                time.sleep(sleep_time)
+        
+        # If we get here, all retries failed
+        logger.error(f"All {max_retries + 1} attempts failed for method {method}")
+        raise Exception(f"Failed after {max_retries + 1} attempts: {str(last_exception)}")
     
     # Authentication handlers
     def _handle_login(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -148,39 +183,60 @@ class MCPHandler:
     
     # Resume and cover letter handlers
     def _handle_generate_resume(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle resume generation request"""
+        """
+        Handle resume generation request.
+        Supports optional 'template' and 'format' params. If template is None or not found, uses the first available template.
+        """
         profile_id = params.get("profileId")
-        template = params.get("template", "standard")
+        template = params.get("template")  # Let generator handle default
         format_type = params.get("format", "pdf")
         
         if not profile_id:
             raise Exception("Profile ID is required")
         
-        return self.resume_generator.generate_resume(profile_id, template, format_type)
+        try:
+            return self.resume_generator.generate_resume(profile_id, template, format_type)
+        except Exception as e:
+            logger.error(f"Failed to generate resume: {e}")
+            return {"success": False, "error": str(e)}
     
     def _handle_generate_cover_letter(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle cover letter generation request"""
+        """
+        Handle cover letter generation request.
+        Supports optional 'template' and 'format' params. If template is None or not found, uses the first available template.
+        """
         profile_id = params.get("profileId")
         job_id = params.get("jobId")
-        template = params.get("template", "standard")
+        template = params.get("template")  # Let generator handle default
         format_type = params.get("format", "pdf")
         
         if not profile_id or not job_id:
             raise Exception("Profile ID and Job ID are required")
         
-        return self.cover_letter_generator.generate_cover_letter(profile_id, job_id, template, format_type)
+        try:
+            return self.cover_letter_generator.generate_cover_letter(profile_id, job_id, template, format_type)
+        except Exception as e:
+            logger.error(f"Failed to generate cover letter: {e}")
+            return {"success": False, "error": str(e)}
     
     def _handle_tailor_resume(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle resume tailoring request"""
+        """
+        Handle resume tailoring request.
+        Supports optional 'template' and 'format' params. If template is None or not found, uses the first available template.
+        """
         profile_id = params.get("profileId")
         job_id = params.get("jobId")
-        template = params.get("template", "standard")
+        template = params.get("template")  # Let generator handle default
         format_type = params.get("format", "pdf")
         
         if not profile_id or not job_id:
             raise Exception("Profile ID and Job ID are required")
         
-        return self.resume_generator.tailor_resume(profile_id, job_id, template, format_type)
+        try:
+            return self.resume_generator.tailor_resume(profile_id, job_id, template, format_type)
+        except Exception as e:
+            logger.error(f"Failed to tailor resume: {e}")
+            return {"success": False, "error": str(e)}
     
     # Application handlers
     def _handle_apply_to_job(self, params: Dict[str, Any]) -> Dict[str, Any]:

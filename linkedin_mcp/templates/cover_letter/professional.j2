@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter - {{ candidate.name }}</title>
+    <style>
+        :root {
+            --primary-color: #0a66c2;
+            --text-color: #333;
+            --light-text: #666;
+            --border-color: #e0e0e0;
+        }
+        
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 1in;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+        
+        .candidate-info {
+            text-align: right;
+        }
+        
+        .candidate-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0 0 0.5rem 0;
+        }
+        
+        .company-address {
+            white-space: pre-line;
+            margin-bottom: 1.5rem;
+            font-style: normal;
+        }
+        
+        .date {
+            margin-bottom: 1.5rem;
+            color: var(--light-text);
+        }
+        
+        .greeting {
+            margin-bottom: 1rem;
+        }
+        
+        .paragraph {
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+        
+        .closing {
+            margin-top: 2rem;
+        }
+        
+        .signature {
+            margin-top: 3rem;
+        }
+        
+        .signature-line {
+            border-top: 1px solid var(--text-color);
+            width: 200px;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="candidate-name">{{ candidate.name }}</div>
+            <div>{{ candidate.address | replace('\n', '<br>') | safe if candidate.address else '' }}</div>
+            <div>{{ candidate.phone }}</div>
+            <div>{{ candidate.email }}</div>
+        </div>
+    </div>
+    
+    <div class="date">{{ date }}</div>
+    
+    <div class="company-address">{{ address | replace('\n', '<br>') | safe }}</div>
+    
+    <div class="greeting">
+        {% if hiring_manager %}
+        Dear {{ hiring_manager }},
+        {% else %}
+        To Whom It May Concern,
+        {% endif %}
+    </div>
+    
+    <div class="paragraph">
+        {{ opening_paragraph | default("I am excited to apply for the " + position + " position at " + company + ".") }}
+    </div>
+    
+    {% for paragraph in body_paragraphs %}
+    <div class="paragraph">
+        {{ paragraph }}
+    </div>
+    {% endfor %}
+    
+    <div class="paragraph">
+        {{ closing_paragraph | default("I would welcome the opportunity to discuss how my skills and experience align with your needs. Thank you for your time and consideration.") }}
+    </div>
+    
+    <div class="closing">
+        <div>{{ signature | default("Sincerely,") }}</div>
+        <div class="signature">
+            <div class="signature-line"></div>
+            {{ candidate.name }}
+        </div>
+    </div>
+    
+    {% if position %}
+    <div style="margin-top: 3rem; font-size: 0.9em; color: var(--light-text);">
+        Re: {{ position }}
+    </div>
+    {% endif %}
+</body>
+</html>

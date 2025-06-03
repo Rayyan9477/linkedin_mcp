@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile.name }} - Resume</title>
+    <style>
+        :root {
+            --primary-color: #0a66c2;
+            --secondary-color: #f3f6f8;
+            --text-color: #333;
+            --light-text: #666;
+            --border-color: #e0e0e0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .name {
+            font-size: 2.5rem;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .title {
+            font-size: 1.2rem;
+            color: var(--light-text);
+            margin: 0.5rem 0;
+        }
+        
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-title {
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .experience, .education {
+            margin-bottom: 1.5rem;
+        }
+        
+        .job, .degree {
+            margin-bottom: 1rem;
+        }
+        
+        .job-header, .degree-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .job-title, .degree-name {
+            font-weight: bold;
+        }
+        
+        .company, .school {
+            font-style: italic;
+        }
+        
+        .date {
+            color: var(--light-text);
+        }
+        
+        .skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .skill-tag {
+            background-color: var(--secondary-color);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="name">{{ profile.name }}</h1>
+        <div class="title">{{ profile.headline }}</div>
+        <div class="contact-info">
+            {% if profile.email %}
+            <div class="contact-item">
+                <span>✉️</span>
+                <span>{{ profile.email }}</span>
+            </div>
+            {% endif %}
+            {% if profile.phone %}
+            <div class="contact-item">
+                <span>📞</span>
+                <span>{{ profile.phone }}</span>
+            </div>
+            {% endif %}
+            {% if profile.linkedin_url %}
+            <div class="contact-item">
+                <span>🔗</span>
+                <a href="{{ profile.linkedin_url }}" target="_blank">LinkedIn</a>
+            </div>
+            {% endif %}
+            {% if profile.github_url %}
+            <div class="contact-item">
+                <span>🐱</span>
+                <a href="{{ profile.github_url }}" target="_blank">GitHub</a>
+            </div>
+            {% endif %}
+            {% if profile.location %}
+            <div class="contact-item">
+                <span>📍</span>
+                <span>{{ profile.location }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if profile.summary %}
+    <div class="section">
+        <h2 class="section-title">Summary</h2>
+        <p>{{ profile.summary }}</p>
+    </div>
+    {% endif %}
+    
+    {% if experience %}
+    <div class="section">
+        <h2 class="section-title">Experience</h2>
+        <div class="experience">
+            {% for job in experience %}
+            <div class="job">
+                <div class="job-header">
+                    <div>
+                        <span class="job-title">{{ job.title }}</span>
+                        <span class="at"> at </span>
+                        <span class="company">{{ job.company }}</span>
+                    </div>
+                    <div class="date">
+                        {{ job.start_date }} - {{ job.end_date }}
+                    </div>
+                </div>
+                {% if job.location %}
+                <div class="location">{{ job.location }}</div>
+                {% endif %}
+                {% if job.description %}
+                <p class="job-description">{{ job.description }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if education %}
+    <div class="section">
+        <h2 class="section-title">Education</h2>
+        <div class="education">
+            {% for edu in education %}
+            <div class="degree">
+                <div class="degree-header">
+                    <div>
+                        <span class="degree-name">{{ edu.degree }}</span>
+                        <span class="at"> at </span>
+                        <span class="school">{{ edu.school }}</span>
+                    </div>
+                    {% if edu.graduation_year %}
+                    <div class="date">
+                        Graduated {{ edu.graduation_year }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if skills %}
+    <div class="section">
+        <h2 class="section-title">Skills</h2>
+        <div class="skills">
+            {% for skill in skills %}
+            <span class="skill-tag">{{ skill }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if languages %}
+    <div class="section">
+        <h2 class="section-title">Languages</h2>
+        <div class="languages">
+            <ul>
+                {% for language in languages %}
+                <li>{{ language }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

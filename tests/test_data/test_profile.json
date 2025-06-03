@@ -1,0 +1,38 @@
+{
+    "profile_id": "test_profile_123",
+    "full_name": "John Doe",
+    "headline": "Senior Software Engineer | Python | Machine Learning",
+    "summary": "Experienced software engineer with a passion for building scalable applications and machine learning solutions. Strong background in Python, cloud technologies, and system design.",
+    "location": "San Francisco Bay Area, United States",
+    "experience": [
+        {
+            "title": "Senior Software Engineer",
+            "company": "Tech Innovations Inc.",
+            "duration": "Jan 2020 - Present",
+            "description": "Lead development of machine learning pipelines and backend services. Mentored junior engineers and improved system performance by 40%."
+        },
+        {
+            "title": "Software Engineer",
+            "company": "Data Systems Co.",
+            "duration": "Jun 2017 - Dec 2019",
+            "description": "Developed and maintained data processing systems. Implemented new features and optimized existing code."
+        }
+    ],
+    "education": [
+        {
+            "degree": "Master of Science in Computer Science",
+            "institution": "Stanford University",
+            "duration": "2015 - 2017"
+        },
+        {
+            "degree": "Bachelor of Science in Computer Science",
+            "institution": "University of California, Berkeley",
+            "duration": "2011 - 2015"
+        }
+    ],
+    "skills": ["Python", "Machine Learning", "Docker", "AWS", "SQL", "REST APIs"],
+    "languages": ["English (Native)", "Spanish (Professional)"],
+    "email": "john.doe@example.com",
+    "phone": "(555) 123-4567",
+    "linkedin_url": "linkedin.com/in/johndoe"
+}

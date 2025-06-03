@@ -1,0 +1,25 @@
+{
+    "job_id": "test_job_456",
+    "title": "Senior Machine Learning Engineer",
+    "company": "AI Solutions Inc.",
+    "location": "Remote",
+    "description": "We are looking for an experienced Machine Learning Engineer to join our team. You will be responsible for developing and deploying machine learning models, building data pipelines, and collaborating with cross-functional teams to deliver AI-powered solutions to our customers.",
+    "requirements": [
+        "Bachelor's or Master's degree in Computer Science, Engineering, or related field",
+        "5+ years of experience in machine learning and software development",
+        "Strong programming skills in Python and experience with ML frameworks (TensorFlow, PyTorch, scikit-learn)",
+        "Experience with cloud platforms (AWS, GCP, or Azure)",
+        "Knowledge of data structures, algorithms, and software design principles",
+        "Experience with containerization and orchestration tools (Docker, Kubernetes)",
+        "Excellent problem-solving and communication skills"
+    ],
+    "preferred_qualifications": [
+        "Experience with natural language processing (NLP) or computer vision",
+        "Knowledge of MLOps best practices",
+        "Experience with big data technologies (Spark, Hadoop, etc.)",
+        "Publications or contributions to open-source ML projects"
+    ],
+    "employment_type": "Full-time",
+    "posted_date": "2025-05-15",
+    "application_deadline": "2025-06-30"
+}
