@@ -1,0 +1,11 @@
+{
+    "linkedin": {
+        "username": "your_linkedin_email@example.com",
+        "password": "your_linkedin_password"
+    },
+    "openai_api_key": "your_openai_api_key",
+    "data_dir": "data",
+    "session_dir": "sessions",
+    "templates_dir": "templates",
+    "debug": true
+}

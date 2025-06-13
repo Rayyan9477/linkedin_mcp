@@ -1,52 +1,119 @@
 # LinkedIn Model Context Protocol (MCP) Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A powerful Model Context Protocol server for LinkedIn interactions that enables AI assistants to search for jobs, generate resumes and cover letters, and manage job applications programmatically.
 
 ## Features
 
-- **Authentication**: Secure LinkedIn authentication with session management
+- **Authentication**: Secure OAuth 2.0 authentication with token refresh
 - **Profile Management**: Access and update LinkedIn profile information
-- **Job Search**: Search for jobs with flexible filtering options
-- **Resume Generation**: Create customized resumes from LinkedIn profiles
-- **Cover Letter Generation**: Generate tailored cover letters for specific job applications
-- **Job Applications**: Submit and track job applications
+- **Job Search**: Advanced job search with filtering and pagination
+- **Resume & Cover Letters**: Generate tailored resumes and cover letters
+- **Messaging**: Send messages and connection requests
+- **Analytics**: Track job applications and engagement metrics
+- **Async API**: Built with asyncio for high performance
+- **Modular Design**: Clean, maintainable code with separation of concerns
 
 ## Architecture
 
 This project implements the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol-spec) specification, allowing AI assistants to interact with LinkedIn through standardized JSON-RPC style requests and responses.
 
-### Components:
+### Project Structure
 
-- **MCP Handler**: Routes requests to appropriate service handlers
-- **API Modules**: Specialized modules for LinkedIn interactions (auth, job search, profile, etc.)
-- **Core Protocol**: Defines request/response structures and data models
-- **Utilities**: Configuration management and helper functions
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/linkedin-mcp.git
-cd linkedin-mcp
-
-# Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
 ```
+linkedin_mcp/
+├── api/
+│   ├── clients/         # API client implementations
+│   │   ├── __init__.py   # Client factory functions
+│   │   ├── linkedin.py   # LinkedIn API client
+│   │   └── openai.py     # OpenAI integration
+│   │
+│   ├── models/          # Data models and schemas
+│   │   ├── __init__.py   # Model exports
+│   │   ├── common.py     # Common data models
+│   │   ├── enums.py      # Enumerations
+│   │   ├── requests.py   # Request models
+│   │   └── responses.py  # Response models
+│   │
+│   └── services/        # Business logic
+│       └── ...
+│
+├── core/                # Core application logic
+│   ├── __init__.py
+│   ├── exceptions.py    # Custom exceptions
+│   ├── mcp_handler.py   # MCP protocol handler
+│   └── protocol.py      # Protocol definitions
+│
+├── utils/              # Utility functions
+│   ├── __init__.py
+│   ├── auth.py          # Authentication helpers
+│   ├── rate_limiter.py  # Rate limiting
+│   └── retry.py         # Retry mechanisms
+│
+├── examples/           # Example scripts
+│   └── basic_usage.py   # Basic client usage example
+│
+├── .env.example       # Example environment variables
+├── README.md           # This file
+└── requirements.txt    # Project dependencies
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- LinkedIn Developer Account
+- OAuth 2.0 credentials from [LinkedIn Developers](https://www.linkedin.com/developers/)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/linkedin-mcp.git
+   cd linkedin-mcp
+   ```
+
+2. **Create and activate a virtual environment**
+   ```bash
+   # Linux/macOS
+   python -m venv venv
+   source venv/bin/activate
+   
+   # Windows
+   python -m venv venv
+   .\venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit the `.env` file with your LinkedIn API credentials and other settings.
 
 ## Configuration
 
-Create a `.env` file in the project root with the following variables:
+Create a `.env` file in the project root with the following variables (see `.env.example` for details):
 
-```
-# LinkedIn Credentials
-LINKEDIN_USERNAME=your_email@example.com
-LINKEDIN_PASSWORD=your_password
+```env
+# LinkedIn API Credentials (required)
+LINKEDIN_CLIENT_ID=your_client_id_here
+LINKEDIN_CLIENT_SECRET=your_client_secret_here
+LINKEDIN_REDIRECT_URI=http://localhost:8080/callback
+
+# Optional: OpenAI API Key (for resume/cover letter generation)
+# OPENAI_API_KEY=your_openai_api_key_here
+
+# Optional: Logging
+LOG_LEVEL=INFO
 
 # API Settings
 OPENAI_API_KEY=your_openai_api_key

@@ -1,9 +1,15 @@
 """
-MCP Handler for processing LinkedIn requests
+MCP Handler for processing LinkedIn requests.
+
+This module provides the main request handling logic for the LinkedIn MCP server,
+routing requests to the appropriate service modules and handling errors.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
+
+from pydantic import BaseModel, ValidationError
 
 from linkedin_mcp.api.auth import LinkedInAuth
 from linkedin_mcp.api.job_search import LinkedInJobSearch
@@ -11,17 +17,109 @@ from linkedin_mcp.api.profile import LinkedInProfile
 from linkedin_mcp.api.resume_generator import ResumeGenerator
 from linkedin_mcp.api.cover_letter_generator import CoverLetterGenerator
 from linkedin_mcp.api.job_application import JobApplication
-from linkedin_mcp.core.protocol import MCPRequest, Error
+from linkedin_mcp.core.protocol import (
+    MCPRequest,
+    Error,
+    ErrorResponse,
+    SuccessResponse,
+    LinkedInSessionState,
+    JobSearchFilter,
+    JobDetails,
+    Profile
+)
 
+# Type variable for generic method return types
+T = TypeVar('T', bound=BaseModel)
+
+# Configure logger
 logger = logging.getLogger("linkedin-mcp")
+
+class MCPError(Exception):
+    """Base exception for MCP handler errors"""
+    def __init__(self, message: str, code: int = -32603, data: Optional[Dict[str, Any]] = None):
+        self.code = code
+        self.message = message
+        self.data = data or {}
+        super().__init__(self.message)
+
+class AuthenticationError(MCPError):
+    """Raised when authentication fails or session is invalid"""
+    def __init__(self, message: str = "Authentication failed", data: Optional[Dict[str, Any]] = None):
+        super().__init__(message, code=401, data=data)
+
+class ValidationError(MCPError):
+    """Raised when request validation fails"""
+    def __init__(self, message: str = "Invalid request parameters", data: Optional[Dict[str, Any]] = None):
+        super().__init__(message, code=-32602, data=data)
+
+class ResourceNotFoundError(MCPError):
+    """Raised when a requested resource is not found"""
+    def __init__(self, resource_type: str, resource_id: str):
+        super().__init__(f"{resource_type} not found: {resource_id}", code=404)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+
+def handle_errors(method: Callable) -> Callable:
+    """Decorator to handle errors in MCP handler methods"""
+    @wraps(method)
+    async def wrapper(self, *args, **kwargs):
+        try:
+            return await method(self, *args, **kwargs)
+        except MCPError as e:
+            logger.error(f"MCP error in {method.__name__}: {str(e)}", exc_info=True)
+            return ErrorResponse(
+                id=kwargs.get('request_id'),
+                error=Error(code=e.code, message=e.message, data=e.data)
+            )
+        except ValidationError as e:
+            logger.error(f"Validation error in {method.__name__}: {str(e)}", exc_info=True)
+            return ErrorResponse(
+                id=kwargs.get('request_id'),
+                error=Error(
+                    code=-32602,
+                    message="Invalid parameters",
+                    data={"errors": e.errors()}
+                )
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in {method.__name__}: {str(e)}", exc_info=True)
+            return ErrorResponse(
+                id=kwargs.get('request_id'),
+                error=Error(
+                    code=-32603,
+                    message="Internal server error",
+                    data={"error": str(e)}
+                )
+            )
+    return wrapper
+
+def validate_request_params(params: Optional[Dict[str, Any]], model: Type[T]) -> T:
+    """Validate request parameters against a Pydantic model"""
+    if params is None:
+        params = {}
+    try:
+        return model(**params)
+    except ValidationError as e:
+        raise ValidationError("Invalid request parameters") from e
 
 class MCPHandler:
     """
-    Handles all MCP requests by routing to appropriate service
+    Handles all MCP requests by routing to appropriate service modules.
+    
+    This class serves as the main entry point for processing MCP requests,
+    validating inputs, and dispatching to the appropriate service methods.
+    It also handles error handling, logging, and response formatting.
     """
     
     def __init__(self):
-        """Initialize all required service instances"""
+        """Initialize all required service instances.
+        
+        This sets up the necessary service clients and registers all available
+        MCP methods with their corresponding handler methods.
+        """
+        logger.info("Initializing MCP handler")
+        
+        # Initialize service clients
         self.auth = LinkedInAuth()
         self.job_search = LinkedInJobSearch()
         self.profile = LinkedInProfile()
@@ -36,86 +134,119 @@ class MCPHandler:
             "linkedin.logout": self._handle_logout,
             "linkedin.checkSession": self._handle_check_session,
             
-            # Browsing methods
-            "linkedin.getFeed": self._handle_get_feed,
+            # Profile methods
             "linkedin.getProfile": self._handle_get_profile,
+            "linkedin.updateProfile": self._handle_update_profile,
+            
+            # Company methods
             "linkedin.getCompany": self._handle_get_company,
+            "linkedin.searchCompanies": self._handle_search_companies,
             
             # Job search methods
             "linkedin.searchJobs": self._handle_search_jobs,
             "linkedin.getJobDetails": self._handle_get_job_details,
             "linkedin.getRecommendedJobs": self._handle_get_recommended_jobs,
+            "linkedin.saveJob": self._handle_save_job,
+            "linkedin.unsaveJob": self._handle_unsave_job,
             
             # Resume and cover letter methods
             "linkedin.generateResume": self._handle_generate_resume,
             "linkedin.generateCoverLetter": self._handle_generate_cover_letter,
-            "linkedin.tailorResume": self._handle_tailor_resume,
+            "linkedin.getResumeTemplates": self._handle_get_resume_templates,
+            "linkedin.getCoverLetterTemplates": self._handle_get_cover_letter_templates,
             
-            # Application methods
+            # Job application methods
             "linkedin.applyToJob": self._handle_apply_to_job,
-            "linkedin.getApplicationStatus": self._handle_get_application_status,
-            "linkedin.getSavedJobs": self._handle_get_saved_jobs,
-            "linkedin.saveJob": self._handle_save_job,
+            "linkedin.trackApplication": self._handle_track_application,
+            "linkedin.withdrawApplication": self._handle_withdraw_application,
+            
+            # Connection methods
+            "linkedin.getConnections": self._handle_get_connections,
+            "linkedin.sendConnectionRequest": self._handle_send_connection_request,
+            "linkedin.acceptConnectionRequest": self._handle_accept_connection_request,
+            
+            # Messaging methods
+            "linkedin.sendMessage": self._handle_send_message,
+            "linkedin.getMessages": self._handle_get_messages,
+            "linkedin.getMessageThread": self._handle_get_message_thread,
+            
+            # Feed and content methods
+            "linkedin.getFeed": self._handle_get_feed,
+            "linkedin.getPost": self._handle_get_post,
+            "linkedin.createPost": self._handle_create_post,
+            "linkedin.likePost": self._handle_like_post,
+            "linkedin.commentOnPost": self._handle_comment_on_post,
+            
+            # Notification methods
+            "linkedin.getNotifications": self._handle_get_notifications,
+            "linkedin.markNotificationAsRead": self._handle_mark_notification_as_read,
+            
+            # Settings and preferences
+            "linkedin.getPrivacySettings": self._handle_get_privacy_settings,
+            "linkedin.updatePrivacySettings": self._handle_update_privacy_settings,
+            "linkedin.getEmailPreferences": self._handle_get_email_preferences,
+            "linkedin.updateEmailPreferences": self._handle_update_email_preferences,
         }
+        
+        logger.info(f"Registered {len(self.method_handlers)} MCP methods")
     
-    def process_request(self, request: MCPRequest, max_retries: int = 3, retry_delay: float = 1.0) -> Any:
+    @handle_errors
+    async def process_request(self, request: MCPRequest) -> Union[SuccessResponse, ErrorResponse]:
         """
-        Process an MCP request by routing to the appropriate handler with retry logic
+        Process an incoming MCP request and return a response.
+        
+        This is the main entry point for handling MCP requests. It validates the request,
+        routes it to the appropriate handler method, and formats the response.
         
         Args:
             request: The MCP request to process
-            max_retries: Maximum number of retry attempts for transient failures
-            retry_delay: Initial delay between retries in seconds (will be increased with backoff)
             
         Returns:
-            The result of the request
+            SuccessResponse with the result if the request was processed successfully,
+            or ErrorResponse if an error occurred.
             
         Raises:
-            Exception: If the method is not supported or all retry attempts are exhausted
+            MCPError: If there's an error processing the request
         """
-        method = request.method
-        params = request.params or {}
+        logger.info(f"Processing request: {request.method} (ID: {request.id})")
         
-        handler = self.method_handlers.get(method)
+        # Check if the method exists
+        handler = self.method_handlers.get(request.method)
         if not handler:
-            error_msg = f"Method not supported: {method}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
+            logger.warning(f"Method not found: {request.method}")
+            return ErrorResponse(
+                id=request.id,
+                error=Error(
+                    code=-32601,
+                    message=f"Method not found: {request.method}",
+                    data={"available_methods": list(self.method_handlers.keys())}
+                )
+            )
         
-        last_exception = None
-        for attempt in range(max_retries + 1):  # +1 for the initial attempt
-            try:
-                logger.info(f"Processing request for method: {method} (attempt {attempt + 1}/{max_retries + 1})")
-                result = handler(params)
-                # If we got here, the request was successful
+        try:
+            # Call the appropriate handler with parameters
+            logger.debug(f"Dispatching to handler for {request.method}")
+            result = await handler(params=request.params or {}, request_id=request.id)
+            
+            # If the handler already returned a response, return it as-is
+            if isinstance(result, (SuccessResponse, ErrorResponse)):
                 return result
                 
-            except Exception as e:
-                last_exception = e
-                error_type = type(e).__name__
-                
-                # Check if this is a transient error that might succeed on retry
-                is_transient = any(t in str(e).lower() for t in [
-                    'timeout', 'temporarily', 'rate limit', 'too many requests', 'service unavailable'
-                ])
-                
-                if not is_transient or attempt == max_retries:
-                    break
-                    
-                # Calculate backoff with jitter
-                backoff = min(retry_delay * (2 ** attempt), 30)  # Cap at 30 seconds
-                jitter = backoff * 0.1  # Add ±10% jitter
-                sleep_time = max(0.1, backoff - jitter + (2 * jitter * (hash(str(attempt)) % 100) / 100))
-                
-                logger.warning(
-                    f"Attempt {attempt + 1} failed with {error_type}: {str(e)}. "
-                    f"Retrying in {sleep_time:.2f}s..."
+            # Otherwise, wrap the result in a SuccessResponse
+            return SuccessResponse(id=request.id, result=result)
+            
+        except Exception as e:
+            # This should be caught by the error handler decorator,
+            # but we'll include it as a fallback
+            logger.exception(f"Unexpected error processing {request.method}")
+            return ErrorResponse(
+                id=request.id,
+                error=Error(
+                    code=-32603,
+                    message="Internal server error",
+                    data={"method": request.method, "error": str(e)}
                 )
-                time.sleep(sleep_time)
-        
-        # If we get here, all retries failed
-        logger.error(f"All {max_retries + 1} attempts failed for method {method}")
-        raise Exception(f"Failed after {max_retries + 1} attempts: {str(last_exception)}")
+            )
     
     # Authentication handlers
     def _handle_login(self, params: Dict[str, Any]) -> Dict[str, Any]:
