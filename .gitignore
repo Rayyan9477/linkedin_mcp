@@ -1,8 +1,26 @@
-
-#python cache files
+# Python
 __pycache__/
-# Python bytecode files
 *.pyc
-# Python cache files
 *.pyo
-# Python egg files
+*.egg-info/
+dist/
+build/
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+
+# Generated output
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data directory
+data/

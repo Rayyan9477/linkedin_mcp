@@ -1,253 +1,229 @@
-# LinkedIn Model Context Protocol (MCP) Server
+# LinkedIn MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![MCP SDK](https://img.shields.io/badge/MCP-FastMCP-6B4FBB.svg)](https://modelcontextprotocol.io/)
 
-A powerful Model Context Protocol server for LinkedIn interactions that enables AI assistants to search for jobs, generate resumes and cover letters, and manage job applications programmatically.
+An MCP server that gives AI assistants full access to LinkedIn — search jobs, view profiles and companies, generate AI-powered resumes and cover letters, and track applications. Built with the [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) (FastMCP).
 
-## Features
+---
 
-- **Authentication**: Secure OAuth 2.0 authentication with token refresh
-- **Profile Management**: Access and update LinkedIn profile information
-- **Job Search**: Advanced job search with filtering and pagination
-- **Resume & Cover Letters**: Generate tailored resumes and cover letters
-- **Messaging**: Send messages and connection requests
-- **Analytics**: Track job applications and engagement metrics
-- **Async API**: Built with asyncio for high performance
-- **Modular Design**: Clean, maintainable code with separation of concerns
+## What It Does
+
+| Category | Capabilities |
+|---|---|
+| **Job Search** | Search with filters (keywords, location, type, experience level, remote, recency), get job details, get recommendations |
+| **Profiles & Companies** | Fetch any LinkedIn profile or company page, AI-powered profile analysis with optimization suggestions |
+| **Resume Generation** | Generate resumes from LinkedIn profiles, tailor resumes to specific job postings, 3 built-in templates |
+| **Cover Letters** | AI-generated cover letters personalized to each job, 2 built-in templates |
+| **Application Tracking** | Track applications locally with status workflow (interested → applied → interviewing → offered/rejected/withdrawn) |
+| **Output Formats** | HTML, Markdown, and PDF (via WeasyPrint) |
+
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+# Core installation
+pip install -e .
+
+# With AI features (resume/cover letter generation, profile analysis)
+pip install -e ".[ai]"
+
+# With PDF export
+pip install -e ".[pdf]"
+
+# Everything
+pip install -e ".[all]"
+```
+
+### 2. Configure
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your credentials:
+
+```env
+LINKEDIN_USERNAME=your_email@example.com
+LINKEDIN_PASSWORD=your_password
+ANTHROPIC_API_KEY=sk-ant-...    # Optional — enables AI features
+```
+
+### 3. Run
+
+**Standalone:**
+
+```bash
+linkedin-mcp
+```
+
+**With Claude Desktop** — add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "linkedin": {
+      "command": "linkedin-mcp"
+    }
+  }
+}
+```
+
+**With Claude Code** — add to `.mcp.json`:
+
+```json
+{
+  "linkedin": {
+    "command": "linkedin-mcp"
+  }
+}
+```
+
+---
+
+## Tools Reference
+
+### Job Tools (3)
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `search_jobs` | `keywords`, `location`, `job_type`, `experience_level`, `remote`, `date_posted`, `page`, `count` | Search LinkedIn jobs with rich filters |
+| `get_job_details` | `job_id` | Get full description, skills, and metadata for a job posting |
+| `get_recommended_jobs` | `count` | Get personalized job recommendations |
+
+### Profile Tools (3)
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `get_profile` | `profile_id` | Fetch a LinkedIn profile (`"me"` for your own) — experience, education, skills |
+| `get_company` | `company_id` | Get company info — description, size, headquarters, specialties |
+| `analyze_profile` | `profile_id` | AI-powered profile review with actionable optimization suggestions |
+
+### Document Generation Tools (4)
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `generate_resume` | `profile_id`, `template`, `output_format` | Generate a resume from a LinkedIn profile |
+| `tailor_resume` | `profile_id`, `job_id`, `template`, `output_format` | Generate a resume tailored to a specific job posting |
+| `generate_cover_letter` | `profile_id`, `job_id`, `template`, `output_format` | Create a personalized cover letter for a job |
+| `list_templates` | `template_type` | List available templates (`resume`, `cover_letter`, or `all`) |
+
+**Templates:** `modern` · `professional` · `minimal` (resume) | `professional` · `concise` (cover letter)
+**Formats:** `html` · `md` · `pdf`
+
+### Application Tracking Tools (3)
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `track_application` | `job_id`, `job_title`, `company`, `status`, `notes`, `url` | Start tracking a job application |
+| `list_applications` | `status` | List all tracked applications, optionally filtered by status |
+| `update_application_status` | `job_id`, `status`, `notes` | Update application status |
+
+**Status values:** `interested` · `applied` · `interviewing` · `offered` · `rejected` · `withdrawn`
+
+---
 
 ## Architecture
 
-This project implements the [Model Context Protocol (MCP)](https://github.com/anthropics/model-context-protocol-spec) specification, allowing AI assistants to interact with LinkedIn through standardized JSON-RPC style requests and responses.
-
-### Project Structure
-
 ```
-linkedin_mcp/
-├── api/
-│   ├── clients/         # API client implementations
-│   │   ├── __init__.py   # Client factory functions
-│   │   ├── linkedin.py   # LinkedIn API client
-│   │   └── openai.py     # OpenAI integration
-│   │
-│   ├── models/          # Data models and schemas
-│   │   ├── __init__.py   # Model exports
-│   │   ├── common.py     # Common data models
-│   │   ├── enums.py      # Enumerations
-│   │   ├── requests.py   # Request models
-│   │   └── responses.py  # Response models
-│   │
-│   └── services/        # Business logic
-│       └── ...
-│
-├── core/                # Core application logic
-│   ├── __init__.py
-│   ├── exceptions.py    # Custom exceptions
-│   ├── mcp_handler.py   # MCP protocol handler
-│   └── protocol.py      # Protocol definitions
-│
-├── utils/              # Utility functions
-│   ├── __init__.py
-│   ├── auth.py          # Authentication helpers
-│   ├── rate_limiter.py  # Rate limiting
-│   └── retry.py         # Retry mechanisms
-│
-├── examples/           # Example scripts
-│   └── basic_usage.py   # Basic client usage example
-│
-├── .env.example       # Example environment variables
-├── README.md           # This file
-└── requirements.txt    # Project dependencies
+src/linkedin_mcp/
+├── server.py                    # FastMCP entry point — 13 tools, 1 resource
+├── config.py                    # Settings from .env (frozen dataclass)
+├── exceptions.py                # 7-class exception hierarchy
+├── models/
+│   ├── linkedin.py              # Profile, Job, Company models (Pydantic v2)
+│   ├── resume.py                # Resume & cover letter content models
+│   └── tracking.py              # Application tracking model
+├── services/
+│   ├── linkedin_client.py       # LinkedIn API wrapper (async via asyncio.to_thread)
+│   ├── job_search.py            # Job search with TTL caching
+│   ├── profile.py               # Profile/company access with caching
+│   ├── resume_generator.py      # AI-enhanced resume generation
+│   ├── cover_letter_generator.py
+│   ├── application_tracker.py   # Local JSON-based application tracking
+│   ├── cache.py                 # Unified JSON file cache with TTL
+│   ├── template_manager.py      # Jinja2 sandboxed template engine
+│   └── format_converter.py      # HTML → PDF/Markdown conversion
+├── ai/
+│   ├── base.py                  # Abstract AI provider interface
+│   └── claude_provider.py       # Anthropic Claude implementation
+└── templates/
+    ├── resume/                  # modern.j2, professional.j2, minimal.j2
+    └── cover_letter/            # professional.j2, concise.j2
 ```
 
-## Getting Started
+### Key Design Decisions
 
-### Prerequisites
+- **Official MCP SDK** — Uses `FastMCP` with `@mcp.tool()` decorators, not a custom protocol implementation
+- **Async throughout** — All sync LinkedIn API calls wrapped in `asyncio.to_thread()` to avoid blocking
+- **Layered architecture** — Tools → Services → Client, with caching at the service layer
+- **AI is optional** — Core LinkedIn features work without an Anthropic API key; AI enhances resume/cover letter generation
+- **Security hardened** — Jinja2 `SandboxedEnvironment`, WeasyPrint SSRF protection, path traversal guards, credential redaction, input validation
 
-- Python 3.8+
-- LinkedIn Developer Account
-- OAuth 2.0 credentials from [LinkedIn Developers](https://www.linkedin.com/developers/)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/linkedin-mcp.git
-   cd linkedin-mcp
-   ```
-
-2. **Create and activate a virtual environment**
-   ```bash
-   # Linux/macOS
-   python -m venv venv
-   source venv/bin/activate
-   
-   # Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit the `.env` file with your LinkedIn API credentials and other settings.
+---
 
 ## Configuration
 
-Create a `.env` file in the project root with the following variables (see `.env.example` for details):
+All settings are loaded from environment variables (`.env` file supported):
 
-```env
-# LinkedIn API Credentials (required)
-LINKEDIN_CLIENT_ID=your_client_id_here
-LINKEDIN_CLIENT_SECRET=your_client_secret_here
-LINKEDIN_REDIRECT_URI=http://localhost:8080/callback
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LINKEDIN_USERNAME` | Yes | — | Your LinkedIn email |
+| `LINKEDIN_PASSWORD` | Yes | — | Your LinkedIn password |
+| `ANTHROPIC_API_KEY` | No | — | Enables AI features (resume/cover letter generation, profile analysis) |
+| `AI_MODEL` | No | `claude-sonnet-4-20250514` | Claude model to use |
+| `DATA_DIR` | No | `~/.linkedin_mcp/data` | Directory for cache, tracking data, generated files |
+| `CACHE_TTL_HOURS` | No | `24` | How long to cache LinkedIn API responses |
+| `LOG_LEVEL` | No | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 
-# Optional: OpenAI API Key (for resume/cover letter generation)
-# OPENAI_API_KEY=your_openai_api_key_here
-
-# Optional: Logging
-LOG_LEVEL=INFO
-
-# API Settings
-OPENAI_API_KEY=your_openai_api_key
-SESSION_DIR=sessions
-DATA_DIR=data
-```
-
-## Usage
-
-### Starting the Server
-
-```bash
-python server.py
-```
-
-### Example MCP Requests
-
-#### Authentication
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "linkedin.login",
-  "params": {
-    "username": "user@example.com",
-    "password": "password123"
-  }
-}
-```
-
-#### Searching for Jobs
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "method": "linkedin.searchJobs",
-  "params": {
-    "filter": {
-      "keywords": "software engineer",
-      "location": "New York, NY",
-      "distance": 25
-    },
-    "page": 1,
-    "count": 20
-  }
-}
-```
-
-#### Generating a Resume
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 3,
-  "method": "linkedin.generateResume",
-  "params": {
-    "profileId": "user123",
-    "template": "standard",
-    "format": "pdf"
-  }
-}
-```
-
-## Available Methods
-
-| Method | Description |
-|--------|-------------|
-| `linkedin.login` | Authenticate with LinkedIn |
-| `linkedin.logout` | End the current session |
-| `linkedin.checkSession` | Check if the current session is valid |
-| `linkedin.getFeed` | Get LinkedIn feed posts |
-| `linkedin.getProfile` | Get LinkedIn profile information |
-| `linkedin.getCompany` | Get company profile information |
-| `linkedin.searchJobs` | Search for jobs with filters |
-| `linkedin.getJobDetails` | Get detailed information about a job |
-| `linkedin.getRecommendedJobs` | Get job recommendations |
-| `linkedin.generateResume` | Generate a resume from a LinkedIn profile |
-| `linkedin.generateCoverLetter` | Generate a cover letter for a job application |
-| `linkedin.tailorResume` | Customize a resume for a specific job |
-| `linkedin.applyToJob` | Apply to a job |
-| `linkedin.getApplicationStatus` | Check application status |
-| `linkedin.getSavedJobs` | Get saved jobs |
-| `linkedin.saveJob` | Save a job for later |
+---
 
 ## Development
 
-### Project Structure
-
-```
-linkedin-mcp/
-├── README.md
-├── requirements.txt
-├── server.py
-├── data/
-│   ├── applications/
-│   ├── companies/
-│   ├── cover_letters/
-│   ├── jobs/
-│   ├── profiles/
-│   └── resumes/
-├── linkedin_mcp/
-│   ├── api/
-│   │   ├── auth.py
-│   │   ├── cover_letter_generator.py
-│   │   ├── job_application.py
-│   │   ├── job_search.py
-│   │   ├── profile.py
-│   │   └── resume_generator.py
-│   ├── core/
-│   │   ├── mcp_handler.py
-│   │   └── protocol.py
-│   └── utils/
-│       └── config.py
-├── sessions/
-└── templates/
-    ├── cover_letter/
-    │   └── standard.html
-    └── resume/
-        └── standard.html
-```
-
-### Running Tests
-
 ```bash
+# Install with all dependencies
+pip install -e ".[all,dev]"
+
+# Run tests (82 tests)
 pytest
+
+# Run with coverage
+pytest --cov=linkedin_mcp
+
+# Lint
+ruff check src/ tests/
 ```
+
+### Test Coverage
+
+Tests cover all layers: config, models, services (cache, tracker, job search, profile, resume/cover letter generation, LinkedIn client formatters, format converter), AI provider, and MCP tool handlers.
+
+---
+
+## Usage Examples
+
+Once connected, ask your AI assistant:
+
+> "Search for remote Python developer jobs in the US"
+
+> "Show me the profile for satyanadella"
+
+> "Generate a resume from my LinkedIn profile tailored to job 3847291056"
+
+> "Create a cover letter for job 3847291056 using the concise template"
+
+> "Track my application for the Senior Engineer role at Google — status: applied"
+
+> "List all my applications that are in the interviewing stage"
+
+> "Analyze my LinkedIn profile and suggest improvements"
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- LinkedIn API documentation
-- Model Context Protocol specification
+MIT

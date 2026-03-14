@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkedin-mcp"
+version = "2.0.0"
+description = "A LinkedIn MCP server for AI assistants — search jobs, generate resumes/cover letters, track applications"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+readme = "README.md"
+authors = [{name = "Rehan"}]
+keywords = ["mcp", "linkedin", "jobs", "resume", "cover-letter", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "linkedin-api>=2.2.0",
+    "pydantic>=2.4.0",
+    "python-dotenv>=1.0.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40.0"]
+pdf = ["weasyprint>=60.0"]
+all = ["anthropic>=0.40.0", "weasyprint>=60.0"]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+linkedin-mcp = "linkedin_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+linkedin_mcp = ["templates/**/*.j2"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
