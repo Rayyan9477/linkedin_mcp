@@ -1,6 +1,6 @@
 """Resume and cover letter content models."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -65,10 +65,13 @@ class CoverLetterContent(BaseModel):
     signature: str = ""
 
 
+OutputFormat = Literal["html", "md", "pdf"]
+
+
 class GeneratedDocument(BaseModel):
     """Result of generating a resume or cover letter."""
 
     content: str
-    format: str  # "html", "md", or "pdf"
+    format: OutputFormat
     file_path: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

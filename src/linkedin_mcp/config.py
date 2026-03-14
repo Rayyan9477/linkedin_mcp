@@ -11,8 +11,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
-
 
 @dataclass(frozen=True)
 class Settings:
@@ -64,6 +62,7 @@ def _parse_int(value: str, default: int) -> int:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Load settings from environment variables. Cached after first call."""
+    load_dotenv()
     settings = Settings(
         linkedin_username=os.getenv("LINKEDIN_USERNAME", ""),
         linkedin_password=os.getenv("LINKEDIN_PASSWORD", ""),

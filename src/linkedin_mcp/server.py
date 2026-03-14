@@ -1,13 +1,18 @@
 """LinkedIn MCP Server — entry point using FastMCP.
 
-Registers all tools and resources, initializes services via lazy context.
+Registers all tools, resources, and prompts. Initializes services via async lifespan.
 """
 
+import asyncio
 import logging
 import json
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp.exceptions import ToolError
+from pydantic import ValidationError
 
 from linkedin_mcp.ai.claude_provider import ClaudeProvider
 from linkedin_mcp.config import get_settings
@@ -22,8 +27,6 @@ from linkedin_mcp.services.resume_generator import ResumeGeneratorService
 from linkedin_mcp.services.template_manager import TemplateManager
 
 logger = logging.getLogger("linkedin-mcp")
-
-mcp = FastMCP("linkedin-mcp")
 
 
 @dataclass
@@ -74,30 +77,68 @@ def _get_app_context() -> AppContext:
     )
 
 
-# Lazy-initialized app context
+# Lazy-initialized app context with async lock for thread safety
 _app_ctx: AppContext | None = None
+_app_ctx_lock = asyncio.Lock()
 
 
-def get_ctx() -> AppContext:
+async def get_ctx() -> AppContext:
     global _app_ctx
-    if _app_ctx is None:
-        _app_ctx = _get_app_context()
+    if _app_ctx is not None:
+        return _app_ctx
+    async with _app_ctx_lock:
+        if _app_ctx is None:
+            _app_ctx = _get_app_context()
     return _app_ctx
 
 
-def _error_response(e: Exception) -> str:
-    """Format an exception as a JSON error response."""
-    error_type = type(e).__name__
-    return json.dumps({"error": error_type, "message": str(e)})
+# ── Lifespan ──────────────────────────────────────────────────────────────
 
+
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[dict]:
+    """Validate config and pre-initialize services on startup."""
+    settings = get_settings()
+    errors = settings.validate()
+    if errors:
+        logger.warning(f"Configuration warnings: {', '.join(errors)}")
+
+    # Pre-initialize context eagerly so startup failures are visible
+    global _app_ctx
+    _app_ctx = _get_app_context()
+    logger.info("LinkedIn MCP Server initialized")
+    try:
+        yield {}
+    finally:
+        logger.info("LinkedIn MCP Server shutting down")
+
+
+mcp = FastMCP("linkedin-mcp", lifespan=app_lifespan)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
 
 _VALID_FORMATS = {"html", "md", "pdf"}
 
 
-def _validate_format(output_format: str) -> str | None:
-    """Return error JSON if format is invalid, None if ok."""
+def _validate_format(output_format: str) -> None:
+    """Raise ToolError if format is invalid."""
     if output_format not in _VALID_FORMATS:
-        return json.dumps({"error": "ValueError", "message": f"Invalid format '{output_format}'. Must be one of: {sorted(_VALID_FORMATS)}"})
+        raise ToolError(
+            f"Invalid format '{output_format}'. Must be one of: {sorted(_VALID_FORMATS)}"
+        )
+
+
+def _resolve_profile_id(profile_id: str) -> str:
+    """Resolve 'me' to the configured LinkedIn username."""
+    if profile_id == "me":
+        username = get_settings().linkedin_username
+        if not username:
+            raise ToolError(
+                "LinkedIn username not configured. Set LINKEDIN_USERNAME environment variable."
+            )
+        return username
+    return profile_id
 
 
 # ── Job Tools ──────────────────────────────────────────────────────────────
@@ -129,7 +170,7 @@ async def search_jobs(
     try:
         from linkedin_mcp.models.linkedin import JobSearchFilter
 
-        ctx = get_ctx()
+        ctx = await get_ctx()
         search_filter = JobSearchFilter(
             keywords=keywords,
             location=location,
@@ -141,7 +182,7 @@ async def search_jobs(
         result = await ctx.jobs.search_jobs(search_filter, max(page, 1), max(min(count, 50), 1))
         return json.dumps(result, indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -152,11 +193,11 @@ async def get_job_details(job_id: str) -> str:
         job_id: LinkedIn job ID
     """
     try:
-        ctx = get_ctx()
+        ctx = await get_ctx()
         details = await ctx.jobs.get_job_details(job_id)
         return json.dumps(details.model_dump(), indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -167,11 +208,11 @@ async def get_recommended_jobs(count: int = 10) -> str:
         count: Number of recommendations (1-25, default 10)
     """
     try:
-        ctx = get_ctx()
-        jobs = await ctx.jobs.get_recommended_jobs(min(count, 25))
+        ctx = await get_ctx()
+        jobs = await ctx.jobs.get_recommended_jobs(max(min(count, 25), 1))
         return json.dumps([j.model_dump() for j in jobs], indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 # ── Profile Tools ──────────────────────────────────────────────────────────
@@ -185,13 +226,12 @@ async def get_profile(profile_id: str) -> str:
         profile_id: LinkedIn profile ID (username slug) or 'me' for self
     """
     try:
-        ctx = get_ctx()
-        if profile_id == "me":
-            profile_id = get_settings().linkedin_username
+        ctx = await get_ctx()
+        profile_id = _resolve_profile_id(profile_id)
         profile = await ctx.profiles.get_profile(profile_id)
         return json.dumps(profile.model_dump(), indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -202,11 +242,11 @@ async def get_company(company_id: str) -> str:
         company_id: LinkedIn company ID or URL slug
     """
     try:
-        ctx = get_ctx()
+        ctx = await get_ctx()
         company = await ctx.profiles.get_company(company_id)
         return json.dumps(company.model_dump(), indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -217,17 +257,16 @@ async def analyze_profile(profile_id: str) -> str:
         profile_id: LinkedIn profile ID or 'me' for self
     """
     try:
-        ctx = get_ctx()
+        ctx = await get_ctx()
         if not ctx.ai:
-            return json.dumps({"error": "AI provider not configured. Set ANTHROPIC_API_KEY."})
+            raise ToolError("AI provider not configured. Set ANTHROPIC_API_KEY.")
 
-        if profile_id == "me":
-            profile_id = get_settings().linkedin_username
+        profile_id = _resolve_profile_id(profile_id)
         profile = await ctx.profiles.get_profile(profile_id)
         analysis = await ctx.ai.analyze_profile(profile.model_dump())
         return json.dumps(analysis, indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 # ── Resume & Cover Letter Tools ───────────────────────────────────────────
@@ -244,18 +283,16 @@ async def generate_resume(
         template: Template name (modern, professional, minimal)
         output_format: Output format (html, md, pdf)
     """
-    if err := _validate_format(output_format):
-        return err
+    _validate_format(output_format)
     try:
-        ctx = get_ctx()
-        if profile_id == "me":
-            profile_id = get_settings().linkedin_username
+        ctx = await get_ctx()
+        profile_id = _resolve_profile_id(profile_id)
         doc = await ctx.resume_gen.generate_resume(profile_id, template, output_format)
         if output_format == "pdf":
             return json.dumps({"format": "pdf", "file_path": doc.file_path, "metadata": doc.metadata})
         return doc.content
     except (LinkedInMCPError, RuntimeError) as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -270,18 +307,16 @@ async def tailor_resume(
         template: Template name (modern, professional, minimal)
         output_format: Output format (html, md, pdf)
     """
-    if err := _validate_format(output_format):
-        return err
+    _validate_format(output_format)
     try:
-        ctx = get_ctx()
-        if profile_id == "me":
-            profile_id = get_settings().linkedin_username
+        ctx = await get_ctx()
+        profile_id = _resolve_profile_id(profile_id)
         doc = await ctx.resume_gen.tailor_resume(profile_id, job_id, template, output_format)
         if output_format == "pdf":
             return json.dumps({"format": "pdf", "file_path": doc.file_path, "metadata": doc.metadata})
         return doc.content
     except (LinkedInMCPError, RuntimeError) as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -296,18 +331,16 @@ async def generate_cover_letter(
         template: Template name (professional, concise)
         output_format: Output format (html, md, pdf)
     """
-    if err := _validate_format(output_format):
-        return err
+    _validate_format(output_format)
     try:
-        ctx = get_ctx()
-        if profile_id == "me":
-            profile_id = get_settings().linkedin_username
+        ctx = await get_ctx()
+        profile_id = _resolve_profile_id(profile_id)
         doc = await ctx.cover_letter_gen.generate_cover_letter(profile_id, job_id, template, output_format)
         if output_format == "pdf":
             return json.dumps({"format": "pdf", "file_path": doc.file_path, "metadata": doc.metadata})
         return doc.content
     except (LinkedInMCPError, RuntimeError) as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -317,7 +350,11 @@ async def list_templates(template_type: str = "all") -> str:
     Args:
         template_type: Template type to list: 'resume', 'cover_letter', or 'all'
     """
-    ctx = get_ctx()
+    if template_type not in ("resume", "cover_letter", "all"):
+        raise ToolError(
+            f"Invalid template_type '{template_type}'. Must be 'resume', 'cover_letter', or 'all'."
+        )
+    ctx = await get_ctx()
     result = {}
     if template_type in ("resume", "all"):
         result["resume"] = ctx.resume_gen.list_templates()
@@ -351,14 +388,18 @@ async def track_application(
     try:
         from linkedin_mcp.models.tracking import TrackedApplication
 
-        ctx = get_ctx()
+        ctx = await get_ctx()
         app = TrackedApplication(
             job_id=job_id, job_title=job_title, company=company, status=status, notes=notes, url=url
         )
         result = await ctx.tracker.track_application(app)
-        return json.dumps(result.model_dump(), indent=2)
+        return json.dumps(result.model_dump(), indent=2, default=str)
+    except ValidationError:
+        raise ToolError(
+            "Invalid status. Must be one of: interested, applied, interviewing, offered, rejected, withdrawn."
+        )
     except (LinkedInMCPError, ValueError) as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -369,11 +410,11 @@ async def list_applications(status: str = "") -> str:
         status: Filter by status (interested, applied, interviewing, offered, rejected, withdrawn). Empty for all.
     """
     try:
-        ctx = get_ctx()
+        ctx = await get_ctx()
         apps = await ctx.tracker.list_applications(status or None)
-        return json.dumps([a.model_dump() for a in apps], indent=2)
+        return json.dumps([a.model_dump() for a in apps], indent=2, default=str)
     except LinkedInMCPError as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -386,11 +427,15 @@ async def update_application_status(job_id: str, status: str, notes: str = "") -
         notes: Optional notes about the update
     """
     try:
-        ctx = get_ctx()
+        ctx = await get_ctx()
         app = await ctx.tracker.update_status(job_id, status, notes)
-        return json.dumps(app.model_dump(), indent=2)
+        return json.dumps(app.model_dump(), indent=2, default=str)
+    except ValidationError:
+        raise ToolError(
+            "Invalid status. Must be one of: interested, applied, interviewing, offered, rejected, withdrawn."
+        )
     except (LinkedInMCPError, ValueError) as e:
-        return _error_response(e)
+        raise ToolError(str(e)) from e
 
 
 # ── Resources ─────────────────────────────────────────────────────────────
@@ -399,16 +444,86 @@ async def update_application_status(job_id: str, status: str, notes: str = "") -
 @mcp.resource("linkedin://applications")
 async def applications_resource() -> str:
     """Summary of all tracked job applications."""
-    ctx = get_ctx()
-    apps = await ctx.tracker.list_applications()
-    summary = {
-        "total": len(apps),
-        "by_status": {},
-        "applications": [a.model_dump() for a in apps],
-    }
-    for app in apps:
-        summary["by_status"][app.status] = summary["by_status"].get(app.status, 0) + 1
-    return json.dumps(summary, indent=2)
+    try:
+        ctx = await get_ctx()
+        apps = await ctx.tracker.list_applications()
+        summary = {
+            "total": len(apps),
+            "by_status": {},
+            "applications": [a.model_dump() for a in apps],
+        }
+        for app in apps:
+            summary["by_status"][app.status] = summary["by_status"].get(app.status, 0) + 1
+        return json.dumps(summary, indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Failed to load applications resource: {e}")
+        return json.dumps({"error": "Failed to load applications", "total": 0, "applications": []})
+
+
+@mcp.resource("linkedin://profile/{profile_id}")
+async def profile_resource(profile_id: str) -> str:
+    """Retrieve a cached LinkedIn profile."""
+    try:
+        ctx = await get_ctx()
+        profile_id = _resolve_profile_id(profile_id)
+        profile = await ctx.profiles.get_profile(profile_id)
+        return json.dumps(profile.model_dump(), indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Failed to load profile resource: {e}")
+        return json.dumps({"error": str(e)})
+
+
+@mcp.resource("linkedin://job/{job_id}")
+async def job_resource(job_id: str) -> str:
+    """Retrieve cached job details."""
+    try:
+        ctx = await get_ctx()
+        job = await ctx.jobs.get_job_details(job_id)
+        return json.dumps(job.model_dump(), indent=2, default=str)
+    except Exception as e:
+        logger.error(f"Failed to load job resource: {e}")
+        return json.dumps({"error": str(e)})
+
+
+# ── Prompts ───────────────────────────────────────────────────────────────
+
+
+@mcp.prompt()
+async def job_search_workflow(role: str, location: str = "") -> str:
+    """Guide through searching for jobs, reviewing listings, and tracking applications."""
+    loc = f" in {location}" if location else ""
+    return f"""Help me find {role} jobs{loc}.
+
+Steps:
+1. Search for jobs matching my criteria using search_jobs
+2. Review the most promising listings with get_job_details
+3. Compare them with my profile using get_profile('me')
+4. Track interesting ones with track_application
+5. Generate tailored resumes for top choices with tailor_resume"""
+
+
+@mcp.prompt()
+async def application_workflow(job_id: str) -> str:
+    """Guide through preparing a complete application for a specific job."""
+    return f"""Help me prepare a complete application for job {job_id}.
+
+Steps:
+1. Get the full job details with get_job_details('{job_id}')
+2. Review my profile with get_profile('me')
+3. Generate a tailored resume with tailor_resume('me', '{job_id}')
+4. Generate a cover letter with generate_cover_letter('me', '{job_id}')
+5. Track this application with track_application"""
+
+
+@mcp.prompt()
+async def profile_optimization() -> str:
+    """Guide through optimizing a LinkedIn profile."""
+    return """Help me optimize my LinkedIn profile.
+
+Steps:
+1. Analyze my current profile with analyze_profile('me')
+2. Review the suggestions and prioritize changes
+3. Generate a polished resume to see how the profile looks in document form with generate_resume('me')"""
 
 
 # ── Entry Point ───────────────────────────────────────────────────────────
@@ -430,7 +545,7 @@ def main():
     if errors:
         logger.warning(f"Configuration warnings: {', '.join(errors)}")
 
-    logger.info("Starting LinkedIn MCP Server with 13 tools")
+    logger.info("Starting LinkedIn MCP Server")
     mcp.run()
 
 

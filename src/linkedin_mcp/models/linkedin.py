@@ -29,6 +29,20 @@ class Education(BaseModel):
     end_date: str = ""
 
 
+class Certification(BaseModel):
+    """A certification entry."""
+
+    name: str = ""
+    authority: str = ""
+
+
+class Language(BaseModel):
+    """A language proficiency entry."""
+
+    name: str = ""
+    proficiency: str = ""
+
+
 class Profile(BaseModel):
     """LinkedIn user profile."""
 
@@ -44,8 +58,8 @@ class Profile(BaseModel):
     experience: list[Experience] = Field(default_factory=list)
     education: list[Education] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
-    certifications: list[dict[str, Any]] = Field(default_factory=list)
-    languages: list[dict[str, str]] = Field(default_factory=list)
+    certifications: list[Certification] = Field(default_factory=list)
+    languages: list[Language] = Field(default_factory=list)
 
 
 class JobSearchFilter(BaseModel):
