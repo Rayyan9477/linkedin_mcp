@@ -1,0 +1,13 @@
+{
+    "job_id": "test_job_456",
+    "title": "Senior Machine Learning Engineer",
+    "company": "AI Solutions Inc.",
+    "location": "Remote",
+    "url": "https://linkedin.com/jobs/view/test_job_456",
+    "date_posted": "2025-05-15",
+    "description": "We are looking for an experienced Machine Learning Engineer to join our team. You will be responsible for developing and deploying machine learning models, building data pipelines, and collaborating with cross-functional teams to deliver AI-powered solutions.",
+    "employment_type": "Full-time",
+    "seniority_level": "Mid-Senior",
+    "skills": ["Python", "TensorFlow", "PyTorch", "AWS", "Docker", "Kubernetes"],
+    "applicant_count": 42
+}

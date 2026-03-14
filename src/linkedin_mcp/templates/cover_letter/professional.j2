@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter - {{ candidate_name }}</title>
+    <style>
+        :root {
+            --primary-color: #0a66c2;
+            --text-color: #333;
+            --light-text: #666;
+        }
+
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 1in;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .candidate-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .candidate-contact {
+            color: var(--light-text);
+            font-size: 0.95rem;
+        }
+
+        .date {
+            margin: 1.5rem 0;
+            color: var(--light-text);
+        }
+
+        .recipient {
+            margin-bottom: 1rem;
+        }
+
+        .greeting {
+            margin-bottom: 1rem;
+        }
+
+        .paragraph {
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+
+        .closing-text {
+            margin-top: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: justify;
+        }
+
+        .signature {
+            white-space: pre-line;
+        }
+
+        .job-ref {
+            margin-top: 3rem;
+            font-size: 0.9rem;
+            color: var(--light-text);
+            border-top: 1px solid #e0e0e0;
+            padding-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="candidate-name">{{ candidate_name }}</div>
+        {% if candidate_contact %}
+        <div class="candidate-contact">{{ candidate_contact }}</div>
+        {% endif %}
+    </div>
+
+    <div class="date">{{ date }}</div>
+
+    {% if recipient %}
+    <div class="recipient">{{ recipient }}</div>
+    {% endif %}
+
+    <div class="greeting">{{ greeting }}</div>
+
+    <div class="paragraph">{{ introduction }}</div>
+
+    {% for paragraph in body_paragraphs %}
+    <div class="paragraph">{{ paragraph }}</div>
+    {% endfor %}
+
+    <div class="closing-text">{{ closing }}</div>
+
+    <div class="signature">{{ signature }}</div>
+
+    {% if job_title and company %}
+    <div class="job-ref">Re: {{ job_title }} at {{ company }}</div>
+    {% endif %}
+</body>
+</html>

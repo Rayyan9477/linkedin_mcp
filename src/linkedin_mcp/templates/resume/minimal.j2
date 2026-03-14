@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ header.name }} - Resume</title>
+    <style>
+        body {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            color: #1a1a1a;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .name {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .headline {
+            color: #666;
+            margin: 0.25rem 0 0.5rem 0;
+        }
+
+        .contact {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #999;
+            margin: 1.5rem 0 0.75rem 0;
+        }
+
+        .entry {
+            margin-bottom: 1rem;
+        }
+
+        .entry-line {
+            overflow: hidden;
+        }
+
+        .entry-line .entry-title {
+            float: left;
+        }
+
+        .entry-line .entry-date {
+            float: right;
+        }
+
+        .entry-title {
+            font-weight: 600;
+        }
+
+        .entry-date {
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        .entry-sub {
+            color: #666;
+        }
+
+        .entry-desc {
+            margin: 0.25rem 0 0 0;
+            color: #444;
+        }
+
+        .skills-inline {
+            color: #444;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 1.25rem;
+        }
+
+        li {
+            margin-bottom: 0.15rem;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="name">{{ header.name }}</h1>
+    {% if header.headline %}
+    <div class="headline">{{ header.headline }}</div>
+    {% endif %}
+    <div class="contact">
+        {{ [header.email, header.phone, header.location, header.linkedin_url] | select | join(' · ') }}
+    </div>
+
+    {% if summary %}
+    <h2>About</h2>
+    <p>{{ summary }}</p>
+    {% endif %}
+
+    {% if experience %}
+    <h2>Experience</h2>
+    {% for job in experience %}
+    <div class="entry">
+        <div class="entry-line">
+            <span class="entry-title">{{ job.title }}</span>
+            <span class="entry-date">{{ job.start_date }} – {{ job.end_date }}</span>
+        </div>
+        <div class="entry-sub">{{ job.company }}{% if job.location %} · {{ job.location }}{% endif %}</div>
+        {% if job.description %}
+        <p class="entry-desc">{{ job.description }}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if education %}
+    <h2>Education</h2>
+    {% for edu in education %}
+    <div class="entry">
+        <div class="entry-line">
+            <span class="entry-title">{{ edu.degree }}{% if edu.field %} in {{ edu.field }}{% endif %}</span>
+            {% if edu.end_date %}
+            <span class="entry-date">{{ edu.end_date }}</span>
+            {% endif %}
+        </div>
+        <div class="entry-sub">{{ edu.school }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if skills %}
+    <h2>Skills</h2>
+    <div class="skills-inline">{{ skills | join(' · ') }}</div>
+    {% endif %}
+
+    {% if certifications %}
+    <h2>Certifications</h2>
+    <ul>
+        {% for cert in certifications %}
+        <li>{{ cert.name }}{% if cert.authority %} — {{ cert.authority }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if languages %}
+    <h2>Languages</h2>
+    <ul>
+        {% for lang in languages %}
+        <li>{{ lang.name }}{% if lang.proficiency %} ({{ lang.proficiency }}){% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</body>
+</html>

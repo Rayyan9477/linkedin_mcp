@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ header.name }} - Resume</title>
+    <style>
+        :root {
+            --primary-color: #0a66c2;
+            --secondary-color: #f3f6f8;
+            --text-color: #333;
+            --light-text: #666;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .name {
+            font-size: 2.5rem;
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .title {
+            font-size: 1.2rem;
+            color: var(--light-text);
+            margin: 0.5rem 0;
+        }
+
+        .contact-info {
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .contact-item {
+            display: inline-block;
+            margin: 0 0.5rem;
+        }
+
+        .section {
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .job, .degree {
+            margin-bottom: 1rem;
+        }
+
+        .job-header, .degree-header {
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .job-header > div:first-child, .degree-header > div:first-child {
+            float: left;
+        }
+
+        .job-header .date, .degree-header .date {
+            float: right;
+        }
+
+        .job-title, .degree-name {
+            font-weight: bold;
+        }
+
+        .company, .school {
+            font-style: italic;
+        }
+
+        .date {
+            color: var(--light-text);
+        }
+
+        .skills {
+            margin: 0;
+            padding: 0;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            margin: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="name">{{ header.name }}</h1>
+        {% if header.headline %}
+        <div class="title">{{ header.headline }}</div>
+        {% endif %}
+        <div class="contact-info">
+            {% if header.email %}
+            <div class="contact-item">
+                <span>{{ header.email }}</span>
+            </div>
+            {% endif %}
+            {% if header.phone %}
+            <div class="contact-item">
+                <span>{{ header.phone }}</span>
+            </div>
+            {% endif %}
+            {% if header.linkedin_url %}
+            <div class="contact-item">
+                <a href="{{ header.linkedin_url }}" target="_blank">LinkedIn</a>
+            </div>
+            {% endif %}
+            {% if header.location %}
+            <div class="contact-item">
+                <span>{{ header.location }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if summary %}
+    <div class="section">
+        <h2 class="section-title">Summary</h2>
+        <p>{{ summary }}</p>
+    </div>
+    {% endif %}
+
+    {% if experience %}
+    <div class="section">
+        <h2 class="section-title">Experience</h2>
+        {% for job in experience %}
+        <div class="job">
+            <div class="job-header">
+                <div>
+                    <span class="job-title">{{ job.title }}</span>
+                    <span> at </span>
+                    <span class="company">{{ job.company }}</span>
+                </div>
+                <div class="date">
+                    {{ job.start_date }} - {{ job.end_date }}
+                </div>
+            </div>
+            {% if job.location %}
+            <div class="location">{{ job.location }}</div>
+            {% endif %}
+            {% if job.description %}
+            <p class="job-description">{{ job.description }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if education %}
+    <div class="section">
+        <h2 class="section-title">Education</h2>
+        {% for edu in education %}
+        <div class="degree">
+            <div class="degree-header">
+                <div>
+                    <span class="degree-name">{{ edu.degree }}{% if edu.field %} in {{ edu.field }}{% endif %}</span>
+                    <span> at </span>
+                    <span class="school">{{ edu.school }}</span>
+                </div>
+                {% if edu.end_date %}
+                <div class="date">{{ edu.end_date }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if skills %}
+    <div class="section">
+        <h2 class="section-title">Skills</h2>
+        <div class="skills">
+            {% for skill in skills %}
+            <span class="skill-tag">{{ skill }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if certifications %}
+    <div class="section">
+        <h2 class="section-title">Certifications</h2>
+        <ul>
+            {% for cert in certifications %}
+            <li>{{ cert.name }}{% if cert.authority %} - {{ cert.authority }}{% endif %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if languages %}
+    <div class="section">
+        <h2 class="section-title">Languages</h2>
+        <ul>
+            {% for lang in languages %}
+            <li>{{ lang.name }}{% if lang.proficiency %} ({{ lang.proficiency }}){% endif %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</body>
+</html>

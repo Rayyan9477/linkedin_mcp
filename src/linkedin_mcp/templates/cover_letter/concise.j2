@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter - {{ candidate_name }}</title>
+    <style>
+        body {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .contact {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        .date {
+            color: #999;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .greeting {
+            margin-bottom: 1rem;
+        }
+
+        .body p {
+            margin: 0 0 1rem 0;
+        }
+
+        .signature {
+            margin-top: 1.5rem;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="name">{{ candidate_name }}</div>
+        {% if candidate_contact %}
+        <div class="contact">{{ candidate_contact }}</div>
+        {% endif %}
+    </div>
+
+    <div class="date">{{ date }}</div>
+
+    <div class="greeting">{{ greeting }}</div>
+
+    <div class="body">
+        <p>{{ introduction }}</p>
+
+        {% for paragraph in body_paragraphs %}
+        <p>{{ paragraph }}</p>
+        {% endfor %}
+
+        <p>{{ closing }}</p>
+    </div>
+
+    <div class="signature">{{ signature }}</div>
+</body>
+</html>
