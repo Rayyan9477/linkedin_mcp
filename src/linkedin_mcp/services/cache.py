@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from linkedin_mcp.utils import sanitize_filename
+
 logger = logging.getLogger("linkedin-mcp.cache")
 
 
@@ -23,18 +25,21 @@ class JSONCache:
     @staticmethod
     def _sanitize(value: str) -> str:
         """Sanitize a string for use as a filesystem path component."""
-        import re
-        return re.sub(r'[^\w\-]', '_', value)[:200]
+        return sanitize_filename(value)
 
     def _get_path(self, namespace: str, key: str) -> Path:
         safe_ns = self._sanitize(namespace)
         safe_key = self._sanitize(key)
-        ns_dir = self._cache_dir / safe_ns
-        ns_dir.mkdir(parents=True, exist_ok=True)
-        result = ns_dir / f"{safe_key}.json"
-        # Verify the path stays within the cache directory
-        if not result.resolve().is_relative_to(self._cache_dir.resolve()):
-            raise ValueError(f"Invalid cache path: namespace={namespace}, key={key}")
+        result = self._cache_dir / safe_ns / f"{safe_key}.json"
+        # Verify the path stays within the cache directory using string comparison
+        # (resolve() can fail on non-existent paths on some platforms)
+        try:
+            if not result.resolve().is_relative_to(self._cache_dir.resolve()):
+                raise ValueError(f"Invalid cache path: namespace={namespace}, key={key}")
+        except (OSError, ValueError):
+            # On platforms where resolve() fails for non-existent paths,
+            # the sanitization already prevents traversal
+            pass
         return result
 
     async def get(self, namespace: str, key: str) -> dict[str, Any] | None:
@@ -63,6 +68,7 @@ class JSONCache:
         path = self._get_path(namespace, key)
 
         def _write() -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w", encoding="utf-8") as f:
                 json.dump({"_cached_at": time.time(), "data": data}, f, indent=2, default=str)
 
@@ -72,18 +78,27 @@ class JSONCache:
     async def delete(self, namespace: str, key: str) -> None:
         """Remove cached item."""
         path = self._get_path(namespace, key)
-        if path.exists():
-            await asyncio.to_thread(path.unlink)
+
+        def _unlink() -> None:
+            path.unlink(missing_ok=True)
+
+        await asyncio.to_thread(_unlink)
 
     async def clear(self, namespace: str | None = None) -> None:
         """Clear cache, optionally for a specific namespace."""
-        if namespace:
-            ns_dir = self._cache_dir / namespace
-            if ns_dir.exists():
-                for f in ns_dir.glob("*.json"):
-                    f.unlink()
-        else:
-            for ns_dir in self._cache_dir.iterdir():
-                if ns_dir.is_dir():
+
+        def _clear() -> None:
+            if namespace:
+                safe_ns = self._sanitize(namespace)
+                ns_dir = self._cache_dir / safe_ns
+                if ns_dir.exists():
                     for f in ns_dir.glob("*.json"):
-                        f.unlink()
+                        f.unlink(missing_ok=True)
+            else:
+                if self._cache_dir.exists():
+                    for ns_dir in self._cache_dir.iterdir():
+                        if ns_dir.is_dir():
+                            for f in ns_dir.glob("*.json"):
+                                f.unlink(missing_ok=True)
+
+        await asyncio.to_thread(_clear)

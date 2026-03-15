@@ -60,3 +60,34 @@ async def test_clear_all_namespaces(cache):
     await cache.clear()
     assert await cache.get("ns1", "a") is None
     assert await cache.get("ns2", "b") is None
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_key_no_error(cache):
+    # Should not raise even if the key never existed
+    await cache.delete("ns", "nonexistent")
+
+
+@pytest.mark.asyncio
+async def test_corrupt_json_returns_none(tmp_path):
+    cache = JSONCache(tmp_path / "cache", ttl_hours=1)
+    # Write a valid entry first to create the directory
+    await cache.set("ns", "corrupt", {"v": 1})
+    # Now corrupt the file
+    path = cache._get_path("ns", "corrupt")
+    path.write_text("not valid json{{{", encoding="utf-8")
+    result = await cache.get("ns", "corrupt")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_concurrent_writes_no_crash(tmp_path):
+    import asyncio
+    cache = JSONCache(tmp_path / "cache", ttl_hours=1)
+    # Multiple concurrent writes to different keys should not crash
+    tasks = [cache.set("ns", f"key_{i}", {"v": i}) for i in range(10)]
+    await asyncio.gather(*tasks)
+    # All values should be readable
+    for i in range(10):
+        result = await cache.get("ns", f"key_{i}")
+        assert result == {"v": i}

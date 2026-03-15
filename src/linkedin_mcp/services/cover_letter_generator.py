@@ -37,7 +37,7 @@ class CoverLetterGeneratorService:
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
     async def generate_cover_letter(
-        self, profile_id: str, job_id: str, template: str = "professional", format: str = "html"
+        self, profile_id: str, job_id: str, template: str = "professional", output_format: str = "html"
     ) -> GeneratedDocument:
         """Generate a personalized cover letter for a job."""
         profile = await self._profiles.get_profile(profile_id)
@@ -68,7 +68,7 @@ class CoverLetterGeneratorService:
         else:
             content = self._build_basic_content(profile_data, job_data)
 
-        return await self._render(content, profile_id, job_id, template, format)
+        return await self._render(content, profile_id, job_id, template, output_format)
 
     def list_templates(self) -> dict[str, str]:
         """List available cover letter templates."""
@@ -105,7 +105,7 @@ class CoverLetterGeneratorService:
         profile_id: str,
         job_id: str,
         template: str,
-        format: str,
+        output_format: str,
     ) -> GeneratedDocument:
         """Render cover letter to the requested format."""
         context = content.model_dump()
@@ -129,11 +129,11 @@ class CoverLetterGeneratorService:
             "generated_at": datetime.now().isoformat(),
         }
 
-        if format == "md":
+        if output_format == "md":
             return GeneratedDocument(
                 content=convert_html_to_markdown(html), format="md", metadata=metadata
             )
-        elif format == "pdf":
+        elif output_format == "pdf":
             safe_profile = re.sub(r'[^\w\-]', '_', profile_id)
             safe_job = re.sub(r'[^\w\-]', '_', job_id)
             filename = f"cover_letter_{safe_profile}_{safe_job}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"

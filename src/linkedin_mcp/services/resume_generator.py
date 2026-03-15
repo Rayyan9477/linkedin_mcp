@@ -37,7 +37,7 @@ class ResumeGeneratorService:
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
     async def generate_resume(
-        self, profile_id: str, template: str = "modern", format: str = "html"
+        self, profile_id: str, template: str = "modern", output_format: str = "html"
     ) -> GeneratedDocument:
         """Generate a resume from a LinkedIn profile."""
         profile = await self._profiles.get_profile(profile_id)
@@ -52,10 +52,10 @@ class ResumeGeneratorService:
                 logger.warning(f"AI enhancement failed, using raw profile: {e}")
 
         content = self._build_resume_content(profile_data, enhanced)
-        return await self._render(content, profile_id, template, format)
+        return await self._render(content, profile_id, template, output_format)
 
     async def tailor_resume(
-        self, profile_id: str, job_id: str, template: str = "modern", format: str = "html"
+        self, profile_id: str, job_id: str, template: str = "modern", output_format: str = "html"
     ) -> GeneratedDocument:
         """Generate a resume tailored to a specific job."""
         profile = await self._profiles.get_profile(profile_id)
@@ -71,7 +71,7 @@ class ResumeGeneratorService:
                 logger.warning(f"AI enhancement failed, using raw profile: {e}")
 
         content = self._build_resume_content(profile_data, enhanced)
-        return await self._render(content, profile_id, template, format, job_id=job_id)
+        return await self._render(content, profile_id, template, output_format, job_id=job_id)
 
     def list_templates(self) -> dict[str, str]:
         """List available resume templates."""
@@ -134,7 +134,7 @@ class ResumeGeneratorService:
         content: ResumeContent,
         profile_id: str,
         template: str,
-        format: str,
+        output_format: str,
         job_id: str | None = None,
     ) -> GeneratedDocument:
         """Render resume content to the requested format."""
@@ -162,11 +162,11 @@ class ResumeGeneratorService:
         if job_id:
             metadata["job_id"] = job_id
 
-        if format == "md":
+        if output_format == "md":
             return GeneratedDocument(
                 content=convert_html_to_markdown(html), format="md", metadata=metadata
             )
-        elif format == "pdf":
+        elif output_format == "pdf":
             safe_id = re.sub(r'[^\w\-]', '_', profile_id)
             filename = f"resume_{safe_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             output_path = self._output_dir / filename

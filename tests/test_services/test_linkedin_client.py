@@ -130,7 +130,7 @@ class TestFormatProfile:
         assert len(result.experience) == 1
         assert result.experience[0].start_date == "Jan 2020"
         assert len(result.skills) == 2
-        assert result.languages[0]["name"] == "English"
+        assert result.languages[0].name == "English"
 
 
 class TestFormatCompany:

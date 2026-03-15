@@ -40,7 +40,7 @@ async def test_generate_cover_letter_html(
     mock_linkedin_client.get_profile.return_value = sample_profile
     mock_linkedin_client.get_job.return_value = sample_job_details
     doc = await cover_letter_gen.generate_cover_letter(
-        "johndoe", "test_job_456", template="professional", format="html"
+        "johndoe", "test_job_456", template="professional", output_format="html"
     )
     assert doc.format == "html"
     assert "John Doe" in doc.content
@@ -54,9 +54,44 @@ async def test_generate_cover_letter_markdown(
     mock_linkedin_client.get_profile.return_value = sample_profile
     mock_linkedin_client.get_job.return_value = sample_job_details
     doc = await cover_letter_gen.generate_cover_letter(
-        "johndoe", "test_job_456", template="professional", format="md"
+        "johndoe", "test_job_456", template="professional", output_format="md"
     )
     assert doc.format == "md"
+    assert "John Doe" in doc.content
+
+
+@pytest.fixture
+def cover_letter_gen_with_ai(profile_service, job_service, mock_ai_provider, tmp_path):
+    tm = TemplateManager()
+    return CoverLetterGeneratorService(
+        profile_service, job_service, mock_ai_provider, tm, tmp_path / "cover_letters"
+    )
+
+
+@pytest.mark.asyncio
+async def test_generate_cover_letter_with_ai(
+    cover_letter_gen_with_ai, mock_linkedin_client, sample_profile, sample_job_details
+):
+    mock_linkedin_client.get_profile.return_value = sample_profile
+    mock_linkedin_client.get_job.return_value = sample_job_details
+    doc = await cover_letter_gen_with_ai.generate_cover_letter(
+        "johndoe", "test_job_456", template="professional", output_format="html"
+    )
+    assert doc.format == "html"
+    assert "John Doe" in doc.content
+
+
+@pytest.mark.asyncio
+async def test_generate_cover_letter_ai_failure_fallback(
+    cover_letter_gen_with_ai, mock_linkedin_client, sample_profile, sample_job_details, mock_ai_provider
+):
+    mock_linkedin_client.get_profile.return_value = sample_profile
+    mock_linkedin_client.get_job.return_value = sample_job_details
+    mock_ai_provider.generate_cover_letter.side_effect = Exception("AI failed")
+    doc = await cover_letter_gen_with_ai.generate_cover_letter(
+        "johndoe", "test_job_456", template="professional", output_format="html"
+    )
+    assert doc.format == "html"
     assert "John Doe" in doc.content
 
 

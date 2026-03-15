@@ -19,6 +19,8 @@ def convert_html_to_pdf(html_content: str, output_path: Path) -> Path:
         def _deny_url_fetcher(url: str, timeout: int = 10, ssl_context: object = None) -> dict:
             """Block all external resource fetching to prevent SSRF."""
             if url.startswith("data:"):
+                if len(url) > 5_000_000:
+                    raise ValueError("data: URI exceeds 5MB size limit")
                 from weasyprint import default_url_fetcher
                 return default_url_fetcher(url)
             raise ValueError(f"External URL fetching blocked: {url}")

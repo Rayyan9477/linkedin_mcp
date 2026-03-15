@@ -28,6 +28,10 @@ class JobSearchService:
             location=filter.location,
             limit=count,
             offset=offset,
+            job_type=filter.job_type,
+            experience_level=filter.experience_level,
+            remote=filter.remote,
+            date_posted=filter.date_posted,
         )
 
         # Cache individual job listings

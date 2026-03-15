@@ -1,12 +1,14 @@
 """Data models for LinkedIn MCP server."""
 
 from linkedin_mcp.models.linkedin import (
+    Certification,
     CompanyInfo,
     Education,
     Experience,
     JobDetails,
     JobListing,
     JobSearchFilter,
+    Language,
     Profile,
 )
 from linkedin_mcp.models.resume import (
@@ -20,6 +22,7 @@ from linkedin_mcp.models.resume import (
 from linkedin_mcp.models.tracking import TrackedApplication
 
 __all__ = [
+    "Certification",
     "CompanyInfo",
     "CoverLetterContent",
     "Education",
@@ -28,6 +31,7 @@ __all__ = [
     "JobDetails",
     "JobListing",
     "JobSearchFilter",
+    "Language",
     "Profile",
     "ResumeContent",
     "ResumeEducation",

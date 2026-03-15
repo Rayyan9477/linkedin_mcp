@@ -84,3 +84,21 @@ async def test_invalid_json_raises(provider, sample_profile_data):
     provider._client.messages.create.return_value.content[0].text = "not valid json"
     with pytest.raises(AIProviderError, match="Failed to parse"):
         await provider.enhance_resume(sample_profile_data)
+
+
+@pytest.mark.asyncio
+async def test_markdown_wrapped_json(provider, sample_profile_data):
+    """Test that JSON wrapped in markdown code fences is correctly extracted."""
+    wrapped = '```json\n{"summary": "Enhanced", "experience": [], "skills": ["Python"], "highlights": []}\n```'
+    provider._client.messages.create.return_value.content[0].text = wrapped
+    result = await provider.enhance_resume(sample_profile_data)
+    assert result["summary"] == "Enhanced"
+
+
+@pytest.mark.asyncio
+async def test_json_with_trailing_text(provider, sample_profile_data):
+    """Test fallback extraction when JSON has surrounding text."""
+    text = 'Here is your JSON:\n{"summary": "Test", "experience": [], "skills": [], "highlights": []}\nHope this helps!'
+    provider._client.messages.create.return_value.content[0].text = text
+    result = await provider.enhance_resume(sample_profile_data)
+    assert result["summary"] == "Test"

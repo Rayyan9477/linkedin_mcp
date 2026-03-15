@@ -80,7 +80,8 @@ class TemplateManager:
         try:
             return self.render_template(template_type, template_name, sample_context)
         except Exception as e:
-            return f"Error generating preview: {e}"
+            from linkedin_mcp.exceptions import TemplateError
+            raise TemplateError(f"Error generating preview: {e}") from e
 
     def _get_sample_context(self, template_type: str) -> dict[str, Any]:
         if template_type == "resume":

@@ -4,6 +4,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from mcp.server.fastmcp.exceptions import ToolError
 from linkedin_mcp.models.linkedin import JobDetails, Profile, CompanyInfo, Experience, Education
 
 
@@ -30,6 +31,10 @@ def mock_ctx():
     ctx.tracker.track_application = AsyncMock()
     ctx.tracker.list_applications = AsyncMock(return_value=[])
     ctx.tracker.update_status = AsyncMock()
+    return ctx
+
+
+async def _mock_get_ctx(ctx):
     return ctx
 
 
@@ -82,23 +87,30 @@ async def test_get_profile_me_substitution(mock_ctx):
 
 
 @pytest.mark.asyncio
+async def test_get_profile_me_empty_username(mock_ctx):
+    from linkedin_mcp.server import get_profile
+    with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx), \
+         patch("linkedin_mcp.server.get_settings") as mock_settings:
+        mock_settings.return_value.linkedin_username = ""
+        with pytest.raises(ToolError, match="LinkedIn username not configured"):
+            await get_profile(profile_id="me")
+
+
+@pytest.mark.asyncio
 async def test_analyze_profile_no_ai(mock_ctx):
     from linkedin_mcp.server import analyze_profile
     mock_ctx.ai = None
     with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
-        result = await analyze_profile(profile_id="someone")
-        data = json.loads(result)
-        assert "error" in data
+        with pytest.raises(ToolError, match="AI provider not configured"):
+            await analyze_profile(profile_id="someone")
 
 
 @pytest.mark.asyncio
 async def test_generate_resume_invalid_format(mock_ctx):
     from linkedin_mcp.server import generate_resume
     with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
-        result = await generate_resume(profile_id="johndoe", output_format="docx")
-        data = json.loads(result)
-        assert "error" in data
-        assert "docx" in data["message"]
+        with pytest.raises(ToolError, match="Invalid format"):
+            await generate_resume(profile_id="johndoe", output_format="docx")
 
 
 @pytest.mark.asyncio
@@ -122,6 +134,14 @@ async def test_list_templates_all(mock_ctx):
 
 
 @pytest.mark.asyncio
+async def test_list_templates_invalid_type(mock_ctx):
+    from linkedin_mcp.server import list_templates
+    with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
+        with pytest.raises(ToolError, match="Invalid template_type"):
+            await list_templates(template_type="invalid")
+
+
+@pytest.mark.asyncio
 async def test_list_applications_empty_status_becomes_none(mock_ctx):
     from linkedin_mcp.server import list_applications
     with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
@@ -135,3 +155,21 @@ async def test_get_recommended_jobs_caps_count(mock_ctx):
     with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
         await get_recommended_jobs(count=50)
         mock_ctx.jobs.get_recommended_jobs.assert_called_with(25)
+
+
+@pytest.mark.asyncio
+async def test_get_recommended_jobs_minimum_count(mock_ctx):
+    from linkedin_mcp.server import get_recommended_jobs
+    with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
+        await get_recommended_jobs(count=0)
+        mock_ctx.jobs.get_recommended_jobs.assert_called_with(1)
+
+
+@pytest.mark.asyncio
+async def test_track_application_invalid_status(mock_ctx):
+    from linkedin_mcp.server import track_application
+    with patch("linkedin_mcp.server.get_ctx", return_value=mock_ctx):
+        with pytest.raises(ToolError, match="Invalid status"):
+            await track_application(
+                job_id="123", job_title="Dev", company="Co", status="invalid"
+            )

@@ -6,11 +6,14 @@ Replaces Selenium-based auto-apply with reliable local tracking.
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from linkedin_mcp.models.tracking import TrackedApplication
+from linkedin_mcp.utils import sanitize_filename
 
 logger = logging.getLogger("linkedin-mcp.tracker")
 
@@ -23,8 +26,7 @@ class ApplicationTrackerService:
         self._dir.mkdir(parents=True, exist_ok=True)
 
     def _path(self, job_id: str) -> Path:
-        import re
-        safe_id = re.sub(r'[^\w\-]', '_', job_id)[:200]
+        safe_id = sanitize_filename(job_id)
         result = self._dir / f"{safe_id}.json"
         if not result.resolve().is_relative_to(self._dir.resolve()):
             raise ValueError(f"Invalid job ID for path: {job_id}")
@@ -36,8 +38,15 @@ class ApplicationTrackerService:
         path = self._path(application.job_id)
 
         def _write() -> None:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(application.model_dump(), f, indent=2)
+            # Atomic write: write to temp file then replace
+            fd, tmp_path = tempfile.mkstemp(dir=self._dir, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(application.model_dump(), f, indent=2, default=str)
+                os.replace(tmp_path, path)
+            except BaseException:
+                os.unlink(tmp_path)
+                raise
 
         await asyncio.to_thread(_write)
         logger.info(f"Tracked application: {application.job_title} at {application.company}")
